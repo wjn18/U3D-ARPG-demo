@@ -1,0 +1,346 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37ad8407e66c0bd4c82105fba16b714c, type: 3}
+  m_Name: Boss1
+  m_EditorClassIdentifier: 
+  bossId: Uriel
+  bossName: Uriel
+  maxHP: 1000
+  maxRV: 200
+  engageDistance: 25
+  approachStopDistance: 4.3
+  repathInterval: 0.4
+  combatDistanceTolerance: 0.35
+  alwaysOpenThresholdPercent: 0.3
+  recoverDelay: 4
+  recoverPerSecond: 10
+  initialStaggerWindowDuration: 2
+  superArmorDuration: 6
+  kneelIdleHoldDuration: 2
+  standBoolReleaseDelay: 1
+  executeDistance: 4
+  executeDamage: 80
+  attacks:
+  - displayName: Normal 1
+    attackIndex: 0
+    category: 0
+    cooldown: 5
+    minRange: 0
+    maxRange: 4.3
+    preferredDistance: 4
+    priority: 10
+    animationTrigger: AttackTrigger
+    animationStateName: 
+    startupDuration: 0.25
+    activeDuration: 0.2
+    recoveryDuration: 0.45
+    alignBeforeAttack: 1
+    useRootMotionPosition: 1
+    useRootMotionRotation: 1
+    trackTargetUntilDirectionLock: 0
+    requireDirectionLockEvent: 0
+    maxTurnAngle: 35
+    turnSpeed: 360
+    opensMeleeWindow: 1
+    firesProjectile: 0
+    damage: 20
+    actualAttackRange: 4.3
+    meleeWindows:
+    - windowIndex: 0
+      damage: 20
+      radius: 1
+      facingAngle: 60
+    projectileSpeed: 12
+    projectileLifeTime: 5
+    interruptibleInStartup: 0
+    interruptibleInActive: 0
+    interruptibleInRecovery: 1
+    attackVoiceClips:
+    - {fileID: 0}
+    attackSwingClips:
+    - {fileID: 8300000, guid: 9daf0a6c7ca1df64dafd65f4ea709634, type: 3}
+    attackHitClips:
+    - {fileID: 8300000, guid: 2f7d32d2e8887214288c1fe8dbcb1415, type: 3}
+    attackMissClips: []
+    hitEffectPrefab: {fileID: 1000012744041452, guid: ac1d2fc791c167840a6bb53e5c317f1d, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  - displayName: Normal 2
+    attackIndex: 1
+    category: 0
+    cooldown: 5
+    minRange: 0
+    maxRange: 4.3
+    preferredDistance: 4
+    priority: 10
+    animationTrigger: AttackTrigger
+    animationStateName: 
+    startupDuration: 0.28
+    activeDuration: 0.2
+    recoveryDuration: 0.42
+    alignBeforeAttack: 1
+    useRootMotionPosition: 1
+    useRootMotionRotation: 1
+    trackTargetUntilDirectionLock: 0
+    requireDirectionLockEvent: 0
+    maxTurnAngle: 35
+    turnSpeed: 360
+    opensMeleeWindow: 1
+    firesProjectile: 0
+    damage: 15
+    actualAttackRange: 4.3
+    meleeWindows:
+    - windowIndex: 0
+      damage: 15
+      radius: 1
+      facingAngle: 60
+    projectileSpeed: 12
+    projectileLifeTime: 5
+    interruptibleInStartup: 0
+    interruptibleInActive: 0
+    interruptibleInRecovery: 1
+    attackVoiceClips: []
+    attackSwingClips:
+    - {fileID: 8300000, guid: 9daf0a6c7ca1df64dafd65f4ea709634, type: 3}
+    attackHitClips:
+    - {fileID: 8300000, guid: 2f7d32d2e8887214288c1fe8dbcb1415, type: 3}
+    attackMissClips: []
+    hitEffectPrefab: {fileID: 1000012744041452, guid: ac1d2fc791c167840a6bb53e5c317f1d, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  - displayName: Normal 3
+    attackIndex: 2
+    category: 0
+    cooldown: 5
+    minRange: 0
+    maxRange: 5.5
+    preferredDistance: 5
+    priority: 11
+    animationTrigger: AttackTrigger
+    animationStateName: 
+    startupDuration: 0.32
+    activeDuration: 0.22
+    recoveryDuration: 0.42
+    alignBeforeAttack: 1
+    useRootMotionPosition: 1
+    useRootMotionRotation: 1
+    trackTargetUntilDirectionLock: 0
+    requireDirectionLockEvent: 0
+    maxTurnAngle: 35
+    turnSpeed: 360
+    opensMeleeWindow: 1
+    firesProjectile: 0
+    damage: 15
+    actualAttackRange: 5.5
+    meleeWindows:
+    - windowIndex: 0
+      damage: 15
+      radius: 3
+      facingAngle: 60
+    projectileSpeed: 12
+    projectileLifeTime: 5
+    interruptibleInStartup: 0
+    interruptibleInActive: 0
+    interruptibleInRecovery: 1
+    attackVoiceClips: []
+    attackSwingClips:
+    - {fileID: 8300000, guid: 9daf0a6c7ca1df64dafd65f4ea709634, type: 3}
+    attackHitClips:
+    - {fileID: 8300000, guid: 2f7d32d2e8887214288c1fe8dbcb1415, type: 3}
+    attackMissClips: []
+    hitEffectPrefab: {fileID: 1000012744041452, guid: ac1d2fc791c167840a6bb53e5c317f1d, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  - displayName: Melee Skill 1
+    attackIndex: 3
+    category: 1
+    cooldown: 17
+    minRange: 0
+    maxRange: 4.3
+    preferredDistance: 4
+    priority: 20
+    animationTrigger: AttackTrigger
+    animationStateName: 
+    startupDuration: 0.35
+    activeDuration: 0.22
+    recoveryDuration: 0.38
+    alignBeforeAttack: 1
+    useRootMotionPosition: 1
+    useRootMotionRotation: 0
+    trackTargetUntilDirectionLock: 1
+    requireDirectionLockEvent: 1
+    maxTurnAngle: 35
+    turnSpeed: 360
+    opensMeleeWindow: 1
+    firesProjectile: 0
+    damage: 10
+    actualAttackRange: 4.3
+    meleeWindows:
+    - windowIndex: 0
+      damage: 10
+      radius: 2
+      facingAngle: 60
+    projectileSpeed: 12
+    projectileLifeTime: 5
+    interruptibleInStartup: 0
+    interruptibleInActive: 0
+    interruptibleInRecovery: 1
+    attackVoiceClips: []
+    attackSwingClips: []
+    attackHitClips:
+    - {fileID: 8300000, guid: e1da319c960dcad408096629f0e32c7e, type: 3}
+    attackMissClips: []
+    hitEffectPrefab: {fileID: 1014011059874384, guid: 01a055765a6654d46b9191dd45501ef6, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  - displayName: Melee Skill 2
+    attackIndex: 4
+    category: 1
+    cooldown: 20
+    minRange: 0
+    maxRange: 6.5
+    preferredDistance: 5.5
+    priority: 21
+    animationTrigger: AttackTrigger
+    animationStateName: 
+    startupDuration: 0.38
+    activeDuration: 0.24
+    recoveryDuration: 0.4
+    alignBeforeAttack: 1
+    useRootMotionPosition: 1
+    useRootMotionRotation: 0
+    trackTargetUntilDirectionLock: 1
+    requireDirectionLockEvent: 1
+    maxTurnAngle: 35
+    turnSpeed: 360
+    opensMeleeWindow: 1
+    firesProjectile: 0
+    damage: 25
+    actualAttackRange: 6.5
+    meleeWindows:
+    - windowIndex: 0
+      damage: 25
+      radius: 3
+      facingAngle: 60
+    projectileSpeed: 12
+    projectileLifeTime: 5
+    interruptibleInStartup: 0
+    interruptibleInActive: 0
+    interruptibleInRecovery: 1
+    attackVoiceClips: []
+    attackSwingClips:
+    - {fileID: 8300000, guid: 9daf0a6c7ca1df64dafd65f4ea709634, type: 3}
+    attackHitClips:
+    - {fileID: 8300000, guid: 2f7d32d2e8887214288c1fe8dbcb1415, type: 3}
+    attackMissClips: []
+    hitEffectPrefab: {fileID: 1014011059874384, guid: 01a055765a6654d46b9191dd45501ef6, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  - displayName: Melee Skill 3
+    attackIndex: 5
+    category: 1
+    cooldown: 25
+    minRange: 0
+    maxRange: 6.5
+    preferredDistance: 5
+    priority: 22
+    animationTrigger: AttackTrigger
+    animationStateName: 
+    startupDuration: 0.42
+    activeDuration: 0.24
+    recoveryDuration: 0.42
+    alignBeforeAttack: 1
+    useRootMotionPosition: 1
+    useRootMotionRotation: 0
+    trackTargetUntilDirectionLock: 1
+    requireDirectionLockEvent: 1
+    maxTurnAngle: 35
+    turnSpeed: 360
+    opensMeleeWindow: 1
+    firesProjectile: 0
+    damage: 20
+    actualAttackRange: 6.5
+    meleeWindows:
+    - windowIndex: 0
+      damage: 20
+      radius: 3
+      facingAngle: 80
+    - windowIndex: 1
+      damage: 20
+      radius: 3
+      facingAngle: 80
+    projectileSpeed: 12
+    projectileLifeTime: 5
+    interruptibleInStartup: 0
+    interruptibleInActive: 0
+    interruptibleInRecovery: 1
+    attackVoiceClips: []
+    attackSwingClips:
+    - {fileID: 8300000, guid: 9daf0a6c7ca1df64dafd65f4ea709634, type: 3}
+    attackHitClips:
+    - {fileID: 8300000, guid: 2f7d32d2e8887214288c1fe8dbcb1415, type: 3}
+    attackMissClips: []
+    hitEffectPrefab: {fileID: 1014011059874384, guid: 01a055765a6654d46b9191dd45501ef6, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  - displayName: Ranged
+    attackIndex: 6
+    category: 2
+    cooldown: 30
+    minRange: 4.5
+    maxRange: 12
+    preferredDistance: 10
+    priority: 18
+    animationTrigger: AttackTrigger
+    animationStateName: 
+    startupDuration: 0.4
+    activeDuration: 0.2
+    recoveryDuration: 0.45
+    alignBeforeAttack: 1
+    useRootMotionPosition: 1
+    useRootMotionRotation: 0
+    trackTargetUntilDirectionLock: 1
+    requireDirectionLockEvent: 1
+    maxTurnAngle: 35
+    turnSpeed: 360
+    opensMeleeWindow: 0
+    firesProjectile: 1
+    damage: 30
+    actualAttackRange: 12
+    meleeWindows: []
+    projectileSpeed: 20
+    projectileLifeTime: 5
+    interruptibleInStartup: 0
+    interruptibleInActive: 0
+    interruptibleInRecovery: 1
+    attackVoiceClips: []
+    attackSwingClips:
+    - {fileID: 8300000, guid: c3deefd8f3e1e9949922162299d239f8, type: 3}
+    attackHitClips:
+    - {fileID: 0}
+    attackMissClips: []
+    hitEffectPrefab: {fileID: 1295943409540678, guid: fc39452c4f57b28418f137963889d607, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  audio:
+    hurtVoiceClips:
+    - {fileID: 8300000, guid: 09b8880e2d4b3864eaac58dbf471e1e3, type: 3}
+    dieVoiceClips:
+    - {fileID: 8300000, guid: bf753829752d3e149a175ecbee884330, type: 3}
+    moveClips: []

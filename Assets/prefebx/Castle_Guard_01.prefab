@@ -735,9 +735,6 @@ PrefabInstance:
       addedObject: {fileID: 5871028968522895068}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5e6bcf59e25c6104fa69b0260e63faac, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4685468311910125328}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5e6bcf59e25c6104fa69b0260e63faac, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 7941734939957041789}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5e6bcf59e25c6104fa69b0260e63faac, type: 3}
       insertIndex: -1
@@ -817,13 +814,17 @@ MonoBehaviour:
   speedParam: Speed
   attackTrigger: Attack
   hitTrigger: Hit
-  isDeadParam: IsDead
+  heavyHitTrigger: HeavyHit
+  isDeadTrigger: IsDead
   deathStateName: Falling Forward Death
+  flyingBackDeathStateName: Flying Back Death
+  standingUpStateName: Standing Up
   dampTime: 0.1
   hitReactDuration: 1.2
   hitResetDuration: 3
   hitStopDuration: 0.35
   stopAgentOnHit: 1
+  heavyHitStopDuration: 1
 --- !u!114 &3675628619887308928
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -854,27 +855,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enemy: {fileID: 3675628619887308928}
   playerStats: {fileID: 0}
---- !u!65 &4685468311910125328
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4508164468136020095}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.93564564, y: 2.1277568, z: 0.5371094}
-  m_Center: {x: 0.032177232, y: 1.0313, z: -0.040035248}
 --- !u!82 &7941734939957041789
 AudioSource:
   m_ObjectHideFlags: 0

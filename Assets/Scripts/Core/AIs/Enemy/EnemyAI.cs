@@ -491,7 +491,7 @@ public class EnemyAI : MonoBehaviour
         if (audioSource != null && swordSound != null)
             audioSource.PlayOneShot(swordSound);
 
-        float damage = config != null ? config.AffectValue : 0f;
+        float damage = config != null ? config.attackDamage : 0f;
         ApplyDamageToCurrentTarget(damage);
     }
 

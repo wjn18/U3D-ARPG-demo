@@ -39,6 +39,7 @@ public class BossMeleeDamageWindow : MonoBehaviour
 
     readonly HashSet<GameObject> hitTargetsThisWindow = new HashSet<GameObject>();
     Collider[] cachedTargetColliders;
+    Transform cachedTarget;
 
     void Reset()
     {
@@ -50,7 +51,8 @@ public class BossMeleeDamageWindow : MonoBehaviour
         if (!windowOpen)
             return;
 
-        if (ownerAI == null || ownerAI.player == null)
+        Transform target = GetCurrentTarget();
+        if (ownerAI == null || target == null)
             return;
 
         Transform origin = GetActiveHitOrigin();
@@ -60,7 +62,7 @@ public class BossMeleeDamageWindow : MonoBehaviour
         float damage = GetActiveDamage();
         float facingAngle = GetActiveFacingAngle();
 
-        if (!IsFacingPlayer(center, facingAngle))
+        if (!IsFacingTarget(center, facingAngle))
             return;
 
         CacheTargetCollidersIfNeeded();
@@ -68,24 +70,24 @@ public class BossMeleeDamageWindow : MonoBehaviour
         if (cachedTargetColliders == null || cachedTargetColliders.Length == 0)
             return;
 
-        bool hitPlayer = IsAnyTargetColliderInsideSphere(center, radius);
-        if (!hitPlayer)
+        bool hitTarget = IsAnyTargetColliderInsideSphere(center, radius);
+        if (!hitTarget)
             return;
 
-        GameObject playerRoot = ownerAI.player.root.gameObject;
-        if (hitTargetsThisWindow.Contains(playerRoot))
+        GameObject targetRoot = target.root.gameObject;
+        if (hitTargetsThisWindow.Contains(targetRoot))
             return;
 
-        Vector3 hitPoint = GetPlayerAimPoint();
+        Vector3 hitPoint = GetTargetAimPoint();
         Vector3 hitNormal = hitPoint - center;
         if (hitNormal.sqrMagnitude < 0.0001f)
             hitNormal = ownerAI.transform.forward;
 
-        ApplyDamageToPlayer(damage);
-        hitTargetsThisWindow.Add(playerRoot);
+        ApplyDamageToTarget(damage);
+        hitTargetsThisWindow.Add(targetRoot);
 
-        if (ownerAI != null && ownerAI.combatAudioController != null)
-            ownerAI.combatAudioController.PlayHitEffect(hitPoint, hitNormal);
+        if (ownerAI != null)
+            ownerAI.PlayCurrentAttackHitVFX(hitPoint, hitNormal);
 
         if (ownerAI != null)
             ownerAI.NotifyAttackHitConfirmed();
@@ -111,6 +113,8 @@ public class BossMeleeDamageWindow : MonoBehaviour
         activeAttackIndex = -1;
         activeWindowIndex = 0;
         hitTargetsThisWindow.Clear();
+        cachedTarget = null;
+        cachedTargetColliders = null;
     }
 
     public void ForceCloseWindow()
@@ -120,7 +124,7 @@ public class BossMeleeDamageWindow : MonoBehaviour
 
     void CacheTargetCollidersIfNeeded()
     {
-        if (cachedTargetColliders == null || cachedTargetColliders.Length == 0)
+        if (cachedTargetColliders == null || cachedTargetColliders.Length == 0 || cachedTarget != GetCurrentTarget())
             CacheTargetColliders(forceRefresh: true);
     }
 
@@ -129,13 +133,15 @@ public class BossMeleeDamageWindow : MonoBehaviour
         if (!forceRefresh && cachedTargetColliders != null && cachedTargetColliders.Length > 0)
             return;
 
-        if (ownerAI == null || ownerAI.player == null)
+        Transform target = GetCurrentTarget();
+        if (ownerAI == null || target == null)
         {
+            cachedTarget = null;
             cachedTargetColliders = System.Array.Empty<Collider>();
             return;
         }
 
-        Transform target = ownerAI.player;
+        cachedTarget = target;
 
         Collider[] selfAndChildren = target.GetComponentsInChildren<Collider>(true);
         Collider[] parents = target.GetComponentsInParent<Collider>(true);
@@ -198,15 +204,15 @@ public class BossMeleeDamageWindow : MonoBehaviour
         return false;
     }
 
-    bool IsFacingPlayer(Vector3 fromPoint, float maxAngle)
+    bool IsFacingTarget(Vector3 fromPoint, float maxAngle)
     {
-        if (ownerAI == null || ownerAI.player == null)
+        if (ownerAI == null || GetCurrentTarget() == null)
             return false;
 
-        Vector3 toPlayer = GetPlayerAimPoint() - fromPoint;
-        toPlayer.y = 0f;
+        Vector3 toTarget = GetTargetAimPoint() - fromPoint;
+        toTarget.y = 0f;
 
-        if (toPlayer.sqrMagnitude < 0.001f)
+        if (toTarget.sqrMagnitude < 0.001f)
             return true;
 
         Vector3 forward = ownerAI.transform.forward;
@@ -215,21 +221,22 @@ public class BossMeleeDamageWindow : MonoBehaviour
         if (forward.sqrMagnitude < 0.001f)
             return true;
 
-        float angle = Vector3.Angle(forward.normalized, toPlayer.normalized);
+        float angle = Vector3.Angle(forward.normalized, toTarget.normalized);
         return angle <= maxAngle;
     }
 
-    Vector3 GetPlayerAimPoint()
+    Vector3 GetTargetAimPoint()
     {
-        if (ownerAI == null || ownerAI.player == null)
+        Transform target = GetCurrentTarget();
+        if (ownerAI == null || target == null)
             return transform.position;
 
         if (cachedTargetColliders == null || cachedTargetColliders.Length == 0)
-            return ownerAI.player.position;
+            return target.position;
 
         Vector3 from = transform.position;
         float bestSqr = float.MaxValue;
-        Vector3 bestPoint = ownerAI.player.position;
+        Vector3 bestPoint = target.position;
 
         foreach (Collider col in cachedTargetColliders)
         {
@@ -275,6 +282,9 @@ public class BossMeleeDamageWindow : MonoBehaviour
     float GetActiveRadius()
     {
         MeleeDamageConfig cfg = GetConfig(activeAttackIndex, activeWindowIndex);
+        if (ownerAI != null)
+            return ownerAI.GetAttackRadius(activeAttackIndex, activeWindowIndex, cfg != null ? cfg.radius : fallbackRadius);
+
         if (cfg != null)
             return Mathf.Max(0f, cfg.radius);
 
@@ -284,6 +294,9 @@ public class BossMeleeDamageWindow : MonoBehaviour
     float GetActiveDamage()
     {
         MeleeDamageConfig cfg = GetConfig(activeAttackIndex, activeWindowIndex);
+        if (ownerAI != null)
+            return ownerAI.GetAttackDamage(activeAttackIndex, activeWindowIndex, cfg != null ? cfg.damage : fallbackDamage);
+
         if (cfg != null)
             return Mathf.Max(0f, cfg.damage);
 
@@ -293,6 +306,9 @@ public class BossMeleeDamageWindow : MonoBehaviour
     float GetActiveFacingAngle()
     {
         MeleeDamageConfig cfg = GetConfig(activeAttackIndex, activeWindowIndex);
+        if (ownerAI != null)
+            return ownerAI.GetAttackFacingAngle(activeAttackIndex, activeWindowIndex, cfg != null ? cfg.facingAngle : fallbackFacingAngle);
+
         if (cfg != null)
             return Mathf.Clamp(cfg.facingAngle, 0f, 180f);
 
@@ -311,12 +327,11 @@ public class BossMeleeDamageWindow : MonoBehaviour
         return transform;
     }
 
-    void ApplyDamageToPlayer(float damage)
+    void ApplyDamageToTarget(float damage)
     {
-        if (ownerAI == null || ownerAI.player == null)
+        Transform target = GetCurrentTarget();
+        if (ownerAI == null || target == null)
             return;
-
-        Transform target = ownerAI.player;
 
         MonoBehaviour[] components = target.GetComponents<MonoBehaviour>();
         foreach (MonoBehaviour c in components)
@@ -347,6 +362,11 @@ public class BossMeleeDamageWindow : MonoBehaviour
                 return;
             }
         }
+    }
+
+    Transform GetCurrentTarget()
+    {
+        return ownerAI != null ? ownerAI.CurrentTarget : null;
     }
 
     void OnDrawGizmosSelected()

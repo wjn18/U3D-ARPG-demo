@@ -16,6 +16,15 @@ public enum BossAttackPhase
 }
 
 [System.Serializable]
+public class BossMeleeWindowData
+{
+    public int windowIndex;
+    public float damage = 20f;
+    public float radius = 2f;
+    public float facingAngle = 80f;
+}
+
+[System.Serializable]
 public class BossAttackDefinition
 {
     public string displayName = "Attack";
@@ -26,6 +35,10 @@ public class BossAttackDefinition
     public float maxRange = 3f;
     public float preferredDistance = 0f;
     public int priority = 0;
+
+    [Header("Animation")]
+    public string animationTrigger = "AttackTrigger";
+    public string animationStateName;
 
     [Header("Timings")]
     public float startupDuration = 0.25f;
@@ -45,16 +58,40 @@ public class BossAttackDefinition
     public bool opensMeleeWindow = true;
     public bool firesProjectile = false;
 
+    [Header("Damage")]
+    public float damage = 20f;
+    public float actualAttackRange = 0f;
+
+    [Header("Melee Windows")]
+    public BossMeleeWindowData[] meleeWindows;
+
+    [Header("Projectile")]
+    public float projectileSpeed = 12f;
+    public float projectileLifeTime = 5f;
+
     [Header("Interrupt")]
     public bool interruptibleInStartup = false;
     public bool interruptibleInActive = false;
     public bool interruptibleInRecovery = true;
 
+    [Header("Audio")]
+    public AudioClip[] attackVoiceClips;
+    public AudioClip[] attackSwingClips;
+    public AudioClip[] attackHitClips;
+    public AudioClip[] attackMissClips;
+
+    [Header("VFX")]
+    public GameObject hitEffectPrefab;
+    public float hitEffectLifetime = 0.75f;
+    public float hitEffectNormalOffset = 0.02f;
+    public TrailRenderer[] slashTrails;
+
     public float TotalDuration => Mathf.Max(0f, startupDuration) + Mathf.Max(0f, activeDuration) + Mathf.Max(0f, recoveryDuration);
+    public float ActualRange => actualAttackRange > 0f ? actualAttackRange : maxRange;
 
     public bool IsInRange(float distance)
     {
-        return distance >= minRange && distance <= maxRange;
+        return distance >= minRange && distance <= ActualRange;
     }
 
     public float PreferredRange
@@ -105,4 +142,32 @@ public class BossAttackDefinition
                 return true;
         }
     }
+
+    public BossMeleeWindowData GetMeleeWindow(int windowIndex)
+    {
+        if (meleeWindows == null || meleeWindows.Length == 0)
+            return null;
+
+        BossMeleeWindowData fallback = null;
+
+        for (int i = 0; i < meleeWindows.Length; i++)
+        {
+            BossMeleeWindowData window = meleeWindows[i];
+            if (window == null)
+                continue;
+
+            if (window.windowIndex == windowIndex)
+                return window;
+
+            if (window.windowIndex == 0 && fallback == null)
+                fallback = window;
+        }
+
+        return fallback;
+    }
+}
+
+[System.Serializable]
+public class BossAttackData : BossAttackDefinition
+{
 }

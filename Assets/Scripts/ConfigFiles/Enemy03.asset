@@ -17,5 +17,5 @@ MonoBehaviour:
   level: 1
   maxHP: 120
   expReward: 30
-  AffectValue: 20
+  attackDamage: 20
   enemyPrefab: {fileID: 4508164468136020095, guid: a51237294efc87d4cb7c2492a5df23cd, type: 3}

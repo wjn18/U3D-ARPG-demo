@@ -13,8 +13,8 @@ public class EnemyConfig : ScriptableObject
     public float maxHP = 50f;
     public int expReward = 20;
 
-    [Header("Affect Value")]
-    public float AffectValue = 14f; // affect value£¬ damage/heal/ect.
+    [Header("Combat Data")]
+    public float attackDamage = 14f;
 
     public GameObject enemyPrefab;
 }

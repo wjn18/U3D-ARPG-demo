@@ -14,7 +14,86 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   guardId: 01
   guardName: Knight
-  level: 2
-  maxHP: 300
-  AffectValue: 35
+  level: 1
+  maxHP: 100
+  actions:
+  - enabled: 1
+    actionName: Attack 1
+    actionType: 0
+    value: 15
+    cooldownTime: 5
+    preferredRange: 2.2
+    actualRange: 3
+    animatorChooseValue: 0
+    actionVoiceClips:
+    - {fileID: 8300000, guid: 80ae22598d68e9647bbf6f0860589202, type: 3}
+    - {fileID: 8300000, guid: c360d01f2c7935347bef96c5f8a8d8b9, type: 3}
+    actionHitVoiceClips: []
+    attackHappenVFXPrefab: {fileID: 0}
+    attackHappenVFXDisplaySocket: {fileID: 0}
+    attackHappenVFXLifetime: 1
+    hitEffectPrefab: {fileID: 1107029698261400, guid: 8da11e126fc23e64ea3882a0717bf52f, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails:
+    - {fileID: 0}
+  - enabled: 1
+    actionName: Attack 2
+    actionType: 1
+    value: 25
+    cooldownTime: 3
+    preferredRange: 2.2
+    actualRange: 3.5
+    animatorChooseValue: 2
+    actionVoiceClips:
+    - {fileID: 8300000, guid: 80ae22598d68e9647bbf6f0860589202, type: 3}
+    - {fileID: 8300000, guid: 300c9daea4c93db46bf09018fd65c664, type: 3}
+    actionHitVoiceClips:
+    - {fileID: 8300000, guid: a94420db433f561488762874e7b51118, type: 3}
+    attackHappenVFXPrefab: {fileID: 0}
+    attackHappenVFXDisplaySocket: {fileID: 0}
+    attackHappenVFXLifetime: 1
+    hitEffectPrefab: {fileID: 1107029698261400, guid: 8da11e126fc23e64ea3882a0717bf52f, type: 3}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails:
+    - {fileID: 0}
+  - enabled: 1
+    actionName: Heal
+    actionType: 2
+    value: 15
+    cooldownTime: 12
+    preferredRange: 8
+    actualRange: 10
+    animatorChooseValue: 1
+    actionVoiceClips:
+    - {fileID: 8300000, guid: 3726c47a5ca60174a9d848fc678e156f, type: 3}
+    actionHitVoiceClips: []
+    attackHappenVFXPrefab: {fileID: 1000012744041452, guid: b8ed3572416feb04fb8daebdc78762f7, type: 3}
+    attackHappenVFXDisplaySocket: {fileID: 2909672807925014992, guid: 6eb4f00f0f177324aa4158d61ae3de33, type: 3}
+    attackHappenVFXLifetime: 5
+    hitEffectPrefab: {fileID: 0}
+    hitEffectLifetime: 0.75
+    hitEffectNormalOffset: 0.02
+    slashTrails: []
+  audio:
+    hurtVoiceClips:
+    - {fileID: 8300000, guid: 05127854569fa3245b2a3f1a4054088d, type: 3}
+    dieVoiceClips:
+    - {fileID: 8300000, guid: f2b34d394a363dd4bbb494029602a067, type: 3}
+    moveClips: []
+    moveSoundInterval: 0.45
+    moveSoundMinSpeed: 0.2
+  animation:
+    speedParam: Speed
+    attackTrigger: Attack
+    chooseParam: Choose
+    isWaitingIdleParam: IsWaitingIdle
+    dampTime: 0.1
+    waitIdleDelay: 5
+    moveThreshold: 0.1
+    deathTriggerParam: IsDead
+    deathChooseParam: DeadChose
+    deathAnimationIndex: 0
+    destroyAfterDeathDelay: 4
   guardPrefab: {fileID: 6626920582163359082, guid: 2315cd3564ca69f4fa0eef45450c6205, type: 3}

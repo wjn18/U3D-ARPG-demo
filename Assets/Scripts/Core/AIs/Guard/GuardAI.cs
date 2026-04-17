@@ -20,14 +20,16 @@ public class GuardAI : MonoBehaviour
 
     [Header("Refs")]
     public Transform player;
+    public AudioSource audioSource;
+    public GuardRuntime guardRuntime;
 
     [Header("Follow")]
-    public float followDistance = 12f;          // ºÍÍæ¼Ò±£³ÖµÄÀíÏë¾àÀë
-    public float followSlack = 1f;             // ÔÊĞíµÄ¸¡¶¯·¶Î§£¬±ÜÃâÆµ·±¶¶¶¯
-    public float repathInterval = 0.25f;         // ¸úËæÖØËãÂ·¾¶¼ä¸ô
-    public float followPointRefreshDistance = 1.0f; // Íæ¼ÒÒÆ¶¯ÕâÃ´¶àºó£¬ÔÙ¸üĞÂÕ¾Î»µã
-    public float orbitJitter = 0.6f;             // Õ¾Î»µãµÄĞ¡Ëæ»úÆ«ÒÆ
-    public float teleportBackDistance = 8f;      // ÀëÍæ¼ÒÌ«Ô¶Ê±£¬ÓÅÏÈ¿ìËÙ»ØÎ»
+    public float followDistance = 12f;          // å’Œç©å®¶ä¿æŒçš„ç†æƒ³è·ç¦»
+    public float followSlack = 1f;             // å…è®¸çš„æµ®åŠ¨èŒƒå›´ï¼Œé¿å…é¢‘ç¹æŠ–åŠ¨
+    public float repathInterval = 0.25f;         // è·Ÿéšé‡ç®—è·¯å¾„é—´éš”
+    public float followPointRefreshDistance = 1.0f; // ç©å®¶ç§»åŠ¨è¿™ä¹ˆå¤šåï¼Œå†æ›´æ–°ç«™ä½ç‚¹
+    public float orbitJitter = 0.6f;             // ç«™ä½ç‚¹çš„å°éšæœºåç§»
+    public float teleportBackDistance = 8f;      // ç¦»ç©å®¶å¤ªè¿œæ—¶ï¼Œä¼˜å…ˆå¿«é€Ÿå›ä½
     
 
     [Header("Detect")]
@@ -36,11 +38,11 @@ public class GuardAI : MonoBehaviour
     public string enemyTag = "Enemy";
 
     [Header("Move")]
-    public float chaseStopDistance = 1.8f;       // ×·µĞÊ±Í£Ö¹¾àÀë
-    public float followStopDistance = 0.15f;     // µ½´ï¸úËæµãÊ±µÄÍ£Ö¹¾àÀë
+    public float chaseStopDistance = 1.8f;       // è¿½æ•Œæ—¶åœæ­¢è·ç¦»
+    public float followStopDistance = 0.15f;     // åˆ°è¾¾è·Ÿéšç‚¹æ—¶çš„åœæ­¢è·ç¦»
     public float rotateSpeed = 10f;
-    public float slowSpeed = 2f;  //¿¿½üµĞÈËºóµÄÒÆ¶¯ËÙ¶È
-    public float slowDownDistance = 3.5f; // ¿ªÊ¼¼õËÙµÄ¾àÀë
+    public float slowSpeed = 2f;  //é è¿‘æ•Œäººåçš„ç§»åŠ¨é€Ÿåº¦
+    public float slowDownDistance = 3.5f; // å¼€å§‹å‡é€Ÿçš„è·ç¦»
 
     [Header("Attack")]
     public float attackRange = 2.2f;
@@ -63,10 +65,15 @@ public class GuardAI : MonoBehaviour
     private float lastAttackTime = -999f;
     private float repathTimer = 0f;
     private bool damageAppliedThisAttack = false;
+    private float nextMoveSoundTime = 0f;
 
     private EnemyRuntime lastAttackerEnemy;
     private EnemyRuntime lockedEnemyRuntime;
+    private BOSSAI lastAttackerBoss;
+    private BOSSAI lockedBossTarget;
     private Transform pendingAttackTarget;
+    private GuardActionData currentAction;
+    private PlayerStatsRuntime playerStats;
 
     private Vector3 currentFollowPoint;
     private Vector3 lastPlayerPosForFollow;
@@ -78,14 +85,27 @@ public class GuardAI : MonoBehaviour
     public bool IsChasing { get; private set; }
 
     public event Action OnAttack;
+    public event Action<GuardActionData> OnAction;
 
-    // µĞÈË -> µ±Ç°Ëø¶¨ËüµÄ Guard
+    // æ•Œäºº -> å½“å‰é”å®šå®ƒçš„ Guard
     private static Dictionary<EnemyRuntime, GuardAI> targetReservations =
         new Dictionary<EnemyRuntime, GuardAI>();
+
+    private readonly Dictionary<GuardActionType, float> nextReadyTimeByAction =
+        new Dictionary<GuardActionType, float>();
 
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>();
+
+        if (guardRuntime == null)
+            guardRuntime = GetComponent<GuardRuntime>();
+
+        if (config == null && guardRuntime != null)
+            config = guardRuntime.config;
+
         normalSpeed = agent.speed;
 
         if (player == null)
@@ -94,6 +114,8 @@ public class GuardAI : MonoBehaviour
             if (obj != null)
                 player = obj.transform;
         }
+
+        CachePlayerStats();
 
         agent.autoBraking = true;
         agent.stoppingDistance = followStopDistance;
@@ -121,13 +143,23 @@ public class GuardAI : MonoBehaviour
 
         CleanupInvalidTargets();
 
-        EnemyRuntime chosenEnemy = ChooseTargetEnemy();
-        UpdateReservation(chosenEnemy);
+        Transform chosenTarget = ChooseTarget();
+        BOSSAI chosenBoss = GetBossFromTarget(chosenTarget);
+        EnemyRuntime chosenEnemy = chosenBoss == null ? GetEnemyFromTarget(chosenTarget) : null;
 
-        currentTarget = lockedEnemyRuntime != null ? lockedEnemyRuntime.transform : null;
+        UpdateReservation(chosenEnemy);
+        lockedBossTarget = chosenBoss;
+
+        currentTarget = lockedBossTarget != null ? lockedBossTarget.transform : lockedEnemyRuntime != null ? lockedEnemyRuntime.transform : null;
 
         float distanceToTarget = DistanceToCurrentTargetXZ();
         float distanceToPlayer = DistanceToPlayerXZ();
+
+        if (currentState != GuardState.Attack && currentState != GuardState.Cooldown && SelectReadyHealAction() != null)
+        {
+            StopAgentCompletely();
+            currentState = GuardState.Attack;
+        }
 
         switch (currentState)
         {
@@ -153,6 +185,7 @@ public class GuardAI : MonoBehaviour
         }
 
         CurrentSpeed = agent.velocity.magnitude;
+        UpdateMoveAudio();
     }
 
     void UpdateIdle(float distanceToPlayer)
@@ -185,7 +218,7 @@ public class GuardAI : MonoBehaviour
         float minKeepDistance = Mathf.Max(6.0f, followDistance - followSlack);
         float maxKeepDistance = followDistance + followSlack;
 
-        // ÔÚ¿É½ÓÊÜ·¶Î§ÄÚ£¬¾ÍÍ£ÏÂ£¬²»·´¸´¼·Íæ¼Ò
+        // åœ¨å¯æ¥å—èŒƒå›´å†…ï¼Œå°±åœä¸‹ï¼Œä¸åå¤æŒ¤ç©å®¶
         if (distanceToPlayer >= minKeepDistance && distanceToPlayer <= maxKeepDistance)
         {
             StopAgentButKeepRotation();
@@ -193,7 +226,7 @@ public class GuardAI : MonoBehaviour
             return;
         }
 
-        // Ì«½üÁË£¬Á¢¿ÌÍËµ½ºÏÊÊÕ¾Î»
+        // å¤ªè¿‘äº†ï¼Œç«‹åˆ»é€€åˆ°åˆé€‚ç«™ä½
         if (distanceToPlayer < minKeepDistance)
         {
             Vector3 retreatPoint = GetRetreatPointFromPlayer(minKeepDistance + 0.35f);
@@ -201,7 +234,7 @@ public class GuardAI : MonoBehaviour
             return;
         }
 
-        // Ì«Ô¶ÔòÖØĞÂ¼ÆËã»¤ÎÀÕ¾Î»µã
+        // å¤ªè¿œåˆ™é‡æ–°è®¡ç®—æŠ¤å«ç«™ä½ç‚¹
         repathTimer -= Time.deltaTime;
         bool playerMovedEnough = (player.position - lastPlayerPosForFollow).sqrMagnitude >=
                                  followPointRefreshDistance * followPointRefreshDistance;
@@ -242,7 +275,7 @@ public class GuardAI : MonoBehaviour
             return;
         }
 
-        if (distanceToTarget <= attackRange)
+        if (CanStartOffensiveAction(distanceToTarget))
         {
             IsChasing = false;
             StopAgentCompletely();
@@ -252,7 +285,7 @@ public class GuardAI : MonoBehaviour
 
         if (distanceToTarget <= slowDownDistance)
         {
-            agent.speed = slowSpeed;   // ¿¿½üºóÂıÏÂÀ´
+            agent.speed = slowSpeed;   // é è¿‘åæ…¢ä¸‹æ¥
         }
 
         IsChasing = true;
@@ -265,6 +298,14 @@ public class GuardAI : MonoBehaviour
     {
         if (currentTarget == null)
         {
+            if (SelectReadyHealAction() != null)
+            {
+                IsChasing = false;
+                StopAgentCompletely();
+                TryAttack();
+                return;
+            }
+
             hasFollowPoint = false;
             currentState = GuardState.Follow;
             return;
@@ -274,7 +315,7 @@ public class GuardAI : MonoBehaviour
         StopAgentCompletely();
         FaceTarget(currentTarget.position);
 
-        if (distanceToTarget > attackRange)
+        if (distanceToTarget > GetMaxOffensiveStartRange())
         {
             currentState = GuardState.Chase;
             return;
@@ -285,6 +326,12 @@ public class GuardAI : MonoBehaviour
 
     void UpdateCooldown(float distanceToTarget, float distanceToPlayer)
     {
+        if (SelectReadyHealAction() != null)
+        {
+            currentState = GuardState.Attack;
+            return;
+        }
+
         if (currentTarget == null)
         {
             hasFollowPoint = false;
@@ -296,50 +343,342 @@ public class GuardAI : MonoBehaviour
         StopAgentCompletely();
         FaceTarget(currentTarget.position);
 
-        if (Time.time >= lastAttackTime + attackCooldown)
+        if (SelectReadyOffensiveAction(distanceToTarget) != null)
         {
-            if (distanceToTarget <= attackRange)
-                currentState = GuardState.Attack;
-            else if (distanceToTarget <= loseTargetRange)
-                currentState = GuardState.Chase;
-            else
-            {
-                hasFollowPoint = false;
-                currentState = GuardState.Follow;
-            }
+            currentState = GuardState.Attack;
+            return;
+        }
+
+        if (distanceToTarget > GetMaxOffensiveStartRange() && distanceToTarget <= loseTargetRange)
+        {
+            currentState = GuardState.Chase;
+            return;
+        }
+
+        if (distanceToTarget > loseTargetRange)
+        {
+            hasFollowPoint = false;
+            currentState = GuardState.Follow;
         }
     }
 
     void TryAttack()
     {
-        if (currentTarget == null) return;
-        if (Time.time < lastAttackTime + attackCooldown) return;
+        GuardActionData action = SelectReadyHealAction();
+        if (action == null)
+        {
+            if (currentTarget == null) return;
+
+            float distanceToTarget = DistanceToCurrentTargetXZ();
+            action = SelectReadyOffensiveAction(distanceToTarget);
+        }
+
+        if (action == null)
+        {
+            currentState = GuardState.Cooldown;
+            return;
+        }
 
         lastAttackTime = Time.time;
         damageAppliedThisAttack = false;
-        pendingAttackTarget = currentTarget;
+        currentAction = action;
+        pendingAttackTarget = IsHealAction(action) ? null : currentTarget;
 
+        SetActionCooldown(action);
+        PlayActionVoice(action);
+        PlayActionHappenVFX(action);
+
+        OnAction?.Invoke(action);
         OnAttack?.Invoke();
         currentState = GuardState.Cooldown;
     }
 
     public void ApplyAttackDamageNow()
     {
+        if (IsHealAction(currentAction))
+        {
+            ApplyHealNow();
+            return;
+        }
+
         if (damageAppliedThisAttack) return;
         if (pendingAttackTarget == null) return;
 
-        EnemyRuntime er = pendingAttackTarget.GetComponent<EnemyRuntime>();
+        EnemyRuntime er = GetEnemyFromTarget(pendingAttackTarget);
         if (er != null && er.IsDead()) return;
 
-        float distance = Vector3.Distance(transform.position, pendingAttackTarget.position);
-        if (distance > attackRange + attackHitTolerance)
+        BOSSAI boss = GetBossFromTarget(pendingAttackTarget);
+        if (boss != null && boss.IsDead()) return;
+
+        float distance = GetDistanceToTargetXZ(pendingAttackTarget);
+        if (distance > GetActionActualRange(currentAction) + attackHitTolerance)
             return;
 
-        IDamageable damageable = pendingAttackTarget.GetComponent<IDamageable>();
+        IDamageable damageable = GetDamageableFromTarget(pendingAttackTarget);
         if (damageable == null) return;
 
+        Vector3 hitPoint = GetClosestTargetPoint(pendingAttackTarget, transform.position);
+        Vector3 hitNormal = hitPoint - transform.position;
+        if (hitNormal.sqrMagnitude < 0.0001f)
+            hitNormal = transform.forward;
+
         damageAppliedThisAttack = true;
-        damageable.TakeDamage(damage, gameObject);
+        damageable.TakeDamage(GetActionValue(currentAction), gameObject);
+        PlayActionHitVoice(currentAction);
+        PlayActionHitVFX(currentAction, hitPoint, hitNormal);
+    }
+
+    public void ApplyHealNow()
+    {
+        if (damageAppliedThisAttack) return;
+
+        PlayerStatsRuntime targetStats = GetPlayerStats();
+        if (targetStats == null || IsPlayerDead(targetStats))
+            return;
+
+        GuardActionData healAction = IsHealAction(currentAction)
+            ? currentAction
+            : GetConfiguredAction(GuardActionType.Heal);
+
+        damageAppliedThisAttack = true;
+        targetStats.Heal(GetActionValue(healAction));
+        PlayActionHitVoice(healAction);
+    }
+
+    GuardActionData SelectReadyHealAction()
+    {
+        GuardActionData healAction = GetConfiguredAction(GuardActionType.Heal);
+        if (healAction == null || !healAction.enabled)
+            return null;
+
+        if (!IsActionReady(healAction))
+            return null;
+
+        if (!CanHealPlayer())
+            return null;
+
+        return healAction;
+    }
+
+    bool CanHealPlayer()
+    {
+        PlayerStatsRuntime targetStats = GetPlayerStats();
+        if (targetStats == null || IsPlayerDead(targetStats))
+            return false;
+
+        return targetStats.hp < targetStats.maxHP;
+    }
+
+    PlayerStatsRuntime GetPlayerStats()
+    {
+        if (playerStats != null)
+            return playerStats;
+
+        CachePlayerStats();
+        return playerStats;
+    }
+
+    void CachePlayerStats()
+    {
+        if (player == null)
+        {
+            GameObject obj = GameObject.FindGameObjectWithTag("Player");
+            if (obj != null)
+                player = obj.transform;
+        }
+
+        if (player == null)
+            return;
+
+        playerStats = player.GetComponent<PlayerStatsRuntime>();
+        if (playerStats == null)
+            playerStats = player.GetComponentInParent<PlayerStatsRuntime>();
+        if (playerStats == null)
+            playerStats = player.GetComponentInChildren<PlayerStatsRuntime>();
+    }
+
+    bool IsPlayerDead(PlayerStatsRuntime targetStats)
+    {
+        PlayerController controller = targetStats.GetComponent<PlayerController>();
+        if (controller != null)
+            return controller.IsDead();
+
+        return targetStats.hp <= 0f;
+    }
+
+    GuardActionData SelectReadyOffensiveAction(float distanceToTarget)
+    {
+        GuardActionData bestAction = null;
+        float bestScore = float.MinValue;
+
+        GuardActionData attack1 = GetConfiguredAction(GuardActionType.Attack1);
+        EvaluateOffensiveAction(attack1, distanceToTarget, ref bestAction, ref bestScore);
+
+        GuardActionData attack2 = GetConfiguredAction(GuardActionType.Attack2);
+        EvaluateOffensiveAction(attack2, distanceToTarget, ref bestAction, ref bestScore);
+
+        return bestAction;
+    }
+
+    void EvaluateOffensiveAction(GuardActionData action, float distanceToTarget, ref GuardActionData bestAction, ref float bestScore)
+    {
+        if (action == null || !action.enabled || IsHealAction(action))
+            return;
+
+        if (!IsActionReady(action))
+            return;
+
+        if (distanceToTarget > GetActionStartRange(action))
+            return;
+
+        float score = -Mathf.Abs(GetActionPreferredRange(action) - distanceToTarget);
+        if (score > bestScore)
+        {
+            bestScore = score;
+            bestAction = action;
+        }
+    }
+
+    bool CanStartOffensiveAction(float distanceToTarget)
+    {
+        return distanceToTarget <= GetMaxOffensiveStartRange();
+    }
+
+    float GetMaxOffensiveStartRange()
+    {
+        float maxRange = Mathf.Max(0f, attackRange);
+
+        GuardActionData attack1 = GetConfiguredAction(GuardActionType.Attack1);
+        if (attack1 != null && attack1.enabled)
+            maxRange = Mathf.Max(maxRange, GetActionStartRange(attack1));
+
+        GuardActionData attack2 = GetConfiguredAction(GuardActionType.Attack2);
+        if (attack2 != null && attack2.enabled)
+            maxRange = Mathf.Max(maxRange, GetActionStartRange(attack2));
+
+        return maxRange;
+    }
+
+    GuardActionData GetConfiguredAction(GuardActionType actionType)
+    {
+        if (config != null && config.actions != null)
+        {
+            for (int i = 0; i < config.actions.Length; i++)
+            {
+                GuardActionData action = config.actions[i];
+                if (action != null && action.actionType == actionType)
+                    return action;
+            }
+        }
+
+        return CreateLegacyAction(actionType);
+    }
+
+    GuardActionData CreateLegacyAction(GuardActionType actionType)
+    {
+        switch (actionType)
+        {
+            case GuardActionType.Attack1:
+                return new GuardActionData
+                {
+                    actionName = "Attack 1",
+                    actionType = GuardActionType.Attack1,
+                    value = damage,
+                    cooldownTime = attackCooldown,
+                    preferredRange = attackRange,
+                    actualRange = attackRange,
+                    animatorChooseValue = 0
+                };
+
+            case GuardActionType.Attack2:
+                return new GuardActionData
+                {
+                    actionName = "Attack 2",
+                    actionType = GuardActionType.Attack2,
+                    value = damage,
+                    cooldownTime = attackCooldown,
+                    preferredRange = attackRange,
+                    actualRange = attackRange,
+                    animatorChooseValue = 2
+                };
+
+            case GuardActionType.Heal:
+                return new GuardActionData
+                {
+                    enabled = false,
+                    actionName = "Heal",
+                    actionType = GuardActionType.Heal,
+                    value = 0f,
+                    cooldownTime = attackCooldown,
+                    preferredRange = 0f,
+                    actualRange = 0f,
+                    animatorChooseValue = 1
+                };
+
+            default:
+                return null;
+        }
+    }
+
+    bool IsActionReady(GuardActionData action)
+    {
+        if (action == null)
+            return false;
+
+        float readyTime = 0f;
+        nextReadyTimeByAction.TryGetValue(action.actionType, out readyTime);
+        return Time.time >= readyTime;
+    }
+
+    void SetActionCooldown(GuardActionData action)
+    {
+        if (action == null)
+            return;
+
+        nextReadyTimeByAction[action.actionType] = Time.time + Mathf.Max(0f, action.cooldownTime);
+    }
+
+    bool IsHealAction(GuardActionData action)
+    {
+        return action != null && action.actionType == GuardActionType.Heal;
+    }
+
+    float GetActionValue(GuardActionData action)
+    {
+        if (action != null && action.value > 0f)
+            return Mathf.Max(0f, action.value);
+
+        return Mathf.Max(0f, damage);
+    }
+
+    float GetActionPreferredRange(GuardActionData action)
+    {
+        if (action == null)
+            return Mathf.Max(0f, attackRange);
+
+        if (action.preferredRange <= 0f && !IsHealAction(action))
+            return Mathf.Max(0f, attackRange);
+
+        return Mathf.Max(0f, action.preferredRange);
+    }
+
+    float GetActionActualRange(GuardActionData action)
+    {
+        if (action == null)
+            return Mathf.Max(0f, attackRange);
+
+        if (action.actualRange <= 0f && !IsHealAction(action))
+            return GetActionPreferredRange(action);
+
+        return Mathf.Max(0f, action.actualRange);
+    }
+
+    float GetActionStartRange(GuardActionData action)
+    {
+        if (action == null)
+            return Mathf.Max(0f, attackRange);
+
+        return Mathf.Max(GetActionPreferredRange(action), GetActionActualRange(action)) + Mathf.Max(0f, attackHitTolerance);
     }
 
     Vector3 BuildSmartFollowPoint()
@@ -362,7 +701,7 @@ public class GuardAI : MonoBehaviour
             baseDir.Normalize();
         }
 
-        // ³¢ÊÔ¶à¸öºòÑ¡µã£¬Ñ¡Ò»¸ö¼ÈÔÚÍæ¼ÒÖÜÎ§£¬ÓÖ²»»áÌ«ÌùÁ³µÄÎ»ÖÃ
+        // å°è¯•å¤šä¸ªå€™é€‰ç‚¹ï¼Œé€‰ä¸€ä¸ªæ—¢åœ¨ç©å®¶å‘¨å›´ï¼Œåˆä¸ä¼šå¤ªè´´è„¸çš„ä½ç½®
         const int maxTry = 5;
         Vector3 bestPoint = player.position + baseDir * followDistance;
         float bestScore = float.MaxValue;
@@ -515,18 +854,66 @@ public class GuardAI : MonoBehaviour
         }
     }
 
+    Transform ChooseTarget()
+    {
+        BOSSAI bossTarget = ChooseBossTarget();
+        if (bossTarget != null)
+            return bossTarget.transform;
+
+        EnemyRuntime enemyTarget = ChooseTargetEnemy();
+        return enemyTarget != null ? enemyTarget.transform : null;
+    }
+
+    BOSSAI ChooseBossTarget()
+    {
+        if (IsBossValid(lastAttackerBoss))
+            return lastAttackerBoss;
+
+        return FindNearestBossInRange();
+    }
+
+    BOSSAI FindNearestBossInRange()
+    {
+        BOSSAI[] bosses = FindObjectsOfType<BOSSAI>();
+        BOSSAI best = null;
+        float bestDist = float.MaxValue;
+
+        for (int i = 0; i < bosses.Length; i++)
+        {
+            BOSSAI boss = bosses[i];
+            if (!IsBossValid(boss))
+                continue;
+
+            float distToSelf = GetDistanceToTargetXZ(boss.transform);
+            if (distToSelf > detectRange)
+                continue;
+
+            float distToPlayer = player != null
+                ? Vector3.Distance(player.position, boss.transform.position)
+                : distToSelf;
+
+            if (distToPlayer < bestDist)
+            {
+                bestDist = distToPlayer;
+                best = boss;
+            }
+        }
+
+        return best;
+    }
+
     EnemyRuntime ChooseTargetEnemy()
     {
-        // 1. ×î¸ßÓÅÏÈ¼¶£º·´»÷´òÎÒµÄµĞÈË
+        // 1. æœ€é«˜ä¼˜å…ˆçº§ï¼šåå‡»æ‰“æˆ‘çš„æ•Œäºº
         if (lastAttackerEnemy != null && IsEnemyValid(lastAttackerEnemy))
             return lastAttackerEnemy;
 
-        // 2. ¹¥»÷ÕıÔÚ¹¥»÷ player µÄµĞÈË
+        // 2. æ”»å‡»æ­£åœ¨æ”»å‡» player çš„æ•Œäºº
         EnemyRuntime attackingPlayer = FindEnemyAttackingPlayer();
         if (attackingPlayer != null)
             return attackingPlayer;
 
-        // 3. ´ò×Ô¼º·¶Î§ÄÚÀë player ×î½üµÄµĞÈË
+        // 3. æ‰“è‡ªå·±èŒƒå›´å†…ç¦» player æœ€è¿‘çš„æ•Œäºº
         EnemyRuntime nearestToPlayer = FindNearestEnemyToPlayerInRange();
         if (nearestToPlayer != null)
             return nearestToPlayer;
@@ -596,12 +983,17 @@ public class GuardAI : MonoBehaviour
 
     void CleanupInvalidTargets()
     {
+        if (!IsBossValid(lastAttackerBoss))
+            lastAttackerBoss = null;
+
+        if (!IsBossValid(lockedBossTarget))
+            lockedBossTarget = null;
+
         if (lastAttackerEnemy != null)
         {
             if (!lastAttackerEnemy.gameObject.activeInHierarchy || lastAttackerEnemy.IsDead())
             {
                 lastAttackerEnemy = null;
-                attackerTarget = null;
             }
             else
             {
@@ -613,6 +1005,9 @@ public class GuardAI : MonoBehaviour
             attackerTarget = null;
         }
 
+        if (lastAttackerBoss != null)
+            attackerTarget = lastAttackerBoss.transform;
+
         if (lockedEnemyRuntime != null)
         {
             if (!lockedEnemyRuntime.gameObject.activeInHierarchy || lockedEnemyRuntime.IsDead())
@@ -623,8 +1018,9 @@ public class GuardAI : MonoBehaviour
 
         if (pendingAttackTarget != null)
         {
-            EnemyRuntime er = pendingAttackTarget.GetComponent<EnemyRuntime>();
-            if (!pendingAttackTarget.gameObject.activeInHierarchy || (er != null && er.IsDead()))
+            EnemyRuntime er = GetEnemyFromTarget(pendingAttackTarget);
+            BOSSAI boss = GetBossFromTarget(pendingAttackTarget);
+            if (!pendingAttackTarget.gameObject.activeInHierarchy || (er != null && er.IsDead()) || (boss != null && boss.IsDead()))
             {
                 pendingAttackTarget = null;
                 damageAppliedThisAttack = false;
@@ -637,6 +1033,14 @@ public class GuardAI : MonoBehaviour
         if (enemy == null) return false;
         if (!enemy.gameObject.activeInHierarchy) return false;
         if (enemy.IsDead()) return false;
+        return true;
+    }
+
+    bool IsBossValid(BOSSAI boss)
+    {
+        if (boss == null) return false;
+        if (!boss.gameObject.activeInHierarchy) return false;
+        if (boss.IsDead()) return false;
         return true;
     }
 
@@ -680,6 +1084,7 @@ public class GuardAI : MonoBehaviour
         }
 
         lockedEnemyRuntime = null;
+        lockedBossTarget = null;
         currentTarget = null;
     }
 
@@ -697,14 +1102,105 @@ public class GuardAI : MonoBehaviour
 
     float DistanceToCurrentTargetXZ()
     {
-        if (currentTarget == null)
+        return GetDistanceToTargetXZ(currentTarget);
+    }
+
+    float GetDistanceToTargetXZ(Transform target)
+    {
+        if (target == null)
             return float.MaxValue;
 
         Vector3 a = transform.position;
-        Vector3 b = currentTarget.position;
+        Vector3 b = GetClosestTargetPoint(target, transform.position);
         a.y = 0f;
         b.y = 0f;
         return Vector3.Distance(a, b);
+    }
+
+    Vector3 GetClosestTargetPoint(Transform target, Vector3 fromPoint)
+    {
+        if (target == null)
+            return fromPoint;
+
+        Collider[] childColliders = target.GetComponentsInChildren<Collider>(true);
+        Collider[] parentColliders = target.GetComponentsInParent<Collider>(true);
+
+        Vector3 bestPoint = target.position;
+        float bestSqr = float.MaxValue;
+
+        CheckClosestPoint(childColliders, fromPoint, ref bestPoint, ref bestSqr);
+        CheckClosestPoint(parentColliders, fromPoint, ref bestPoint, ref bestSqr);
+
+        return bestPoint;
+    }
+
+    void CheckClosestPoint(Collider[] colliders, Vector3 fromPoint, ref Vector3 bestPoint, ref float bestSqr)
+    {
+        if (colliders == null)
+            return;
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider col = colliders[i];
+            if (col == null || !col.enabled)
+                continue;
+
+            Vector3 point = col.ClosestPoint(fromPoint);
+            float sqr = (point - fromPoint).sqrMagnitude;
+            if (sqr < bestSqr)
+            {
+                bestSqr = sqr;
+                bestPoint = point;
+            }
+        }
+    }
+
+    BOSSAI GetBossFromTarget(Transform target)
+    {
+        if (target == null)
+            return null;
+
+        BOSSAI boss = target.GetComponent<BOSSAI>();
+        if (boss != null)
+            return boss;
+
+        boss = target.GetComponentInParent<BOSSAI>();
+        if (boss != null)
+            return boss;
+
+        return target.GetComponentInChildren<BOSSAI>(true);
+    }
+
+    EnemyRuntime GetEnemyFromTarget(Transform target)
+    {
+        if (target == null)
+            return null;
+
+        EnemyRuntime enemy = target.GetComponent<EnemyRuntime>();
+        if (enemy != null)
+            return enemy;
+
+        enemy = target.GetComponentInParent<EnemyRuntime>();
+        if (enemy != null)
+            return enemy;
+
+        return target.GetComponentInChildren<EnemyRuntime>(true);
+    }
+
+    IDamageable GetDamageableFromTarget(Transform target)
+    {
+        if (target == null)
+            return null;
+
+        IDamageable damageable = target.GetComponent<IDamageable>();
+        if (damageable != null)
+            return damageable;
+
+        damageable = target.GetComponentInParent<IDamageable>();
+        if (damageable != null)
+            return damageable;
+
+        return target.GetComponentInChildren<IDamageable>(true);
     }
 
     float DistanceToPlayerXZ()
@@ -725,10 +1221,183 @@ public class GuardAI : MonoBehaviour
         if (attacker.IsDead()) return;
 
         lastAttackerEnemy = attacker;
+        lastAttackerBoss = null;
         attackerTarget = attacker.transform;
 
         if (currentState == GuardState.Follow || currentState == GuardState.Idle)
             currentState = GuardState.Chase;
+    }
+
+    public void NotifyBeingAttacked(BOSSAI attacker)
+    {
+        if (!IsBossValid(attacker)) return;
+
+        lastAttackerBoss = attacker;
+        lastAttackerEnemy = null;
+        attackerTarget = attacker.transform;
+
+        if (currentState == GuardState.Follow || currentState == GuardState.Idle)
+            currentState = GuardState.Chase;
+    }
+
+    public void PlayHurtVoice()
+    {
+        PlayRandomClip(config != null && config.audio != null ? config.audio.hurtVoiceClips : null);
+    }
+
+    public void PlayDieVoice()
+    {
+        PlayRandomClip(config != null && config.audio != null ? config.audio.dieVoiceClips : null);
+    }
+
+    void PlayActionVoice(GuardActionData action)
+    {
+        if (action == null)
+            return;
+
+        PlayRandomClip(action.actionVoiceClips);
+    }
+
+    void PlayActionHitVoice(GuardActionData action)
+    {
+        if (action == null)
+            return;
+
+        PlayRandomClip(action.actionHitVoiceClips);
+    }
+
+    void PlayActionHappenVFX(GuardActionData action)
+    {
+        if (action == null || action.attackHappenVFXPrefab == null)
+            return;
+
+        Transform socket = ResolveActionVFXSocket(action.attackHappenVFXDisplaySocket);
+
+        GameObject instance = Instantiate(
+            action.attackHappenVFXPrefab,
+            socket.position,
+            socket.rotation,
+            socket
+        );
+
+        instance.SetActive(true);
+        RestartActionVFX(instance);
+        Destroy(instance, Mathf.Max(0.01f, action.attackHappenVFXLifetime));
+    }
+
+    void RestartActionVFX(GameObject effectObject)
+    {
+        if (effectObject == null)
+            return;
+
+        ParticleSystem[] particleSystems = effectObject.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < particleSystems.Length; i++)
+        {
+            ParticleSystem particleSystem = particleSystems[i];
+            particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            particleSystem.Play(true);
+        }
+    }
+
+    Transform ResolveActionVFXSocket(GameObject configuredSocket)
+    {
+        if (configuredSocket == null)
+            return transform;
+
+        Transform configuredTransform = configuredSocket.transform;
+        if (configuredTransform == transform || configuredTransform.IsChildOf(transform))
+            return configuredTransform;
+
+        Transform localSocket = FindChildByName(transform, configuredSocket.name);
+        return localSocket != null ? localSocket : transform;
+    }
+
+    Transform FindChildByName(Transform root, string childName)
+    {
+        if (root == null || string.IsNullOrEmpty(childName))
+            return null;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform child = root.GetChild(i);
+            if (child.name == childName)
+                return child;
+
+            Transform nested = FindChildByName(child, childName);
+            if (nested != null)
+                return nested;
+        }
+
+        return null;
+    }
+
+    void PlayActionHitVFX(GuardActionData action, Vector3 position, Vector3 normal)
+    {
+        if (action == null || action.hitEffectPrefab == null)
+            return;
+
+        SpawnHitEffect(
+            action.hitEffectPrefab,
+            position,
+            normal,
+            action.hitEffectLifetime,
+            action.hitEffectNormalOffset
+        );
+    }
+
+    void SpawnHitEffect(GameObject prefab, Vector3 position, Vector3 normal, float lifetime, float normalOffset)
+    {
+        if (prefab == null)
+            return;
+
+        Vector3 safeNormal = normal.sqrMagnitude > 0.0001f
+            ? normal.normalized
+            : Vector3.up;
+
+        Vector3 spawnPosition = position + safeNormal * Mathf.Max(0f, normalOffset);
+        Quaternion rotation = Quaternion.LookRotation(safeNormal, Vector3.up);
+        GameObject instance = Instantiate(prefab, spawnPosition, rotation);
+        Destroy(instance, Mathf.Max(0.01f, lifetime));
+    }
+
+    void UpdateMoveAudio()
+    {
+        if (config == null || config.audio == null)
+            return;
+
+        if (CurrentSpeed < Mathf.Max(0f, config.audio.moveSoundMinSpeed))
+            return;
+
+        if (Time.time < nextMoveSoundTime)
+            return;
+
+        nextMoveSoundTime = Time.time + Mathf.Max(0.05f, config.audio.moveSoundInterval);
+        PlayRandomClip(config.audio.moveClips);
+    }
+
+    void PlayRandomClip(AudioClip[] clips)
+    {
+        if (audioSource == null || clips == null || clips.Length == 0)
+            return;
+
+        AudioClip clip = GetRandomClip(clips);
+        if (clip == null)
+            return;
+
+        audioSource.PlayOneShot(clip);
+    }
+
+    AudioClip GetRandomClip(AudioClip[] clips)
+    {
+        int startIndex = UnityEngine.Random.Range(0, clips.Length);
+        for (int i = 0; i < clips.Length; i++)
+        {
+            AudioClip clip = clips[(startIndex + i) % clips.Length];
+            if (clip != null)
+                return clip;
+        }
+
+        return null;
     }
 
     void OnDisable()
@@ -749,7 +1418,7 @@ public class GuardAI : MonoBehaviour
         Gizmos.DrawWireSphere(transform.position, detectRange);
 
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.DrawWireSphere(transform.position, GetMaxOffensiveStartRange());
 
         Gizmos.color = Color.gray;
         Gizmos.DrawWireSphere(transform.position, loseTargetRange);

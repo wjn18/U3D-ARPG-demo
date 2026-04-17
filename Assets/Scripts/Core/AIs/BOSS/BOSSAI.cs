@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Serialization;
 
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(BossAnimatorController))]
+[RequireComponent(typeof(BossRuntime))]
 public class BOSSAI : MonoBehaviour, IDamageable
 {
     public enum BossState
@@ -15,6 +17,9 @@ public class BOSSAI : MonoBehaviour, IDamageable
         Dead
     }
 
+    [Header("Config")]
+    public BossConfig config;
+
     [Header("Refs")]
     public Transform player;
     public NavMeshAgent agent;
@@ -24,10 +29,10 @@ public class BOSSAI : MonoBehaviour, IDamageable
     public BossStaggerSystem staggerSystem;
     public BossWeaponTrailController weaponTrailVFX;
     public CombatAudioController combatAudioController;
+    public BossRuntime bossRuntime;
 
-    [Header("Stats")]
-    public float maxHP = 1000f;
-    public float currentHP = 1000f;
+    [FormerlySerializedAs("maxHP"), SerializeField, HideInInspector] private float legacyMaxHP = 1000f;
+    [FormerlySerializedAs("currentHP"), SerializeField, HideInInspector] private float legacyCurrentHP = 1000f;
 
     [Header("Detection")]
     public float engageDistance = 25f;
@@ -37,18 +42,48 @@ public class BOSSAI : MonoBehaviour, IDamageable
     public float repathInterval = 0.15f;
     public float combatDistanceTolerance = 0.35f;
 
-    [Header("Attacks")]
-    public BossAttackDefinition[] attacks = CreateDefaultAttackSet();
+    [Header("Target Switching")]
+    public float damageWindowDuration = 2f;
+    public float playerSwitchDamageThreshold = 30f;
+    public float guardSwitchDamageThreshold = 25f;
+    public float targetSwitchCooldown = 10f;
 
-    [Header("Runtime")]
-    public BossState currentState = BossState.Idle;
-    public int currentAttackIndex = -1;
-    public BossAttackPhase currentAttackPhase = BossAttackPhase.None;
+    [FormerlySerializedAs("attacks"), SerializeField, HideInInspector] private BossAttackDefinition[] legacyAttacks = BossConfig.CreateDefaultAttackSet();
 
     [Header("Debug")]
     public bool drawGizmos = true;
 
+    public float maxHP => bossRuntime != null ? bossRuntime.maxHP : legacyMaxHP;
+    public float currentHP => bossRuntime != null ? bossRuntime.currentHP : legacyCurrentHP;
+    public BossAttackDefinition[] attacks => GetAttackSet();
+    public BossState currentState
+    {
+        get => bossRuntime != null ? bossRuntime.currentState : BossState.Idle;
+        private set
+        {
+            if (bossRuntime != null)
+                bossRuntime.SetState(value);
+        }
+    }
+    public int currentAttackIndex => bossRuntime != null ? bossRuntime.currentAttackIndex : -1;
+    public BossAttackPhase currentAttackPhase => bossRuntime != null ? bossRuntime.currentAttackPhase : BossAttackPhase.None;
+    public Transform CurrentTarget => bossRuntime != null && bossRuntime.currentTarget != null ? bossRuntime.currentTarget : player;
+
     private readonly Dictionary<int, float> nextReadyTimeByIndex = new Dictionary<int, float>();
+    private struct DamageRecord
+    {
+        public float time;
+        public float amount;
+
+        public DamageRecord(float time, float amount)
+        {
+            this.time = time;
+            this.amount = amount;
+        }
+    }
+
+    private readonly List<DamageRecord> recentPlayerDamage = new List<DamageRecord>();
+    private readonly Dictionary<GuardRuntime, List<DamageRecord>> recentGuardDamageBySource = new Dictionary<GuardRuntime, List<DamageRecord>>();
 
     private BossAttackDefinition currentAttack;
     private float currentAttackElapsed;
@@ -56,6 +91,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
     private int currentAttackWindowIndex;
     private bool attackHitConfirmedThisWindow;
     private bool rangedAttackResultPending;
+    private float nextAllowedTargetSwitchTime;
 
     void Awake()
     {
@@ -74,19 +110,142 @@ public class BOSSAI : MonoBehaviour, IDamageable
         if (combatAudioController == null)
             combatAudioController = GetComponentInChildren<CombatAudioController>(true);
 
+        if (bossRuntime == null)
+            bossRuntime = GetComponent<BossRuntime>();
+        if (bossRuntime == null)
+            bossRuntime = gameObject.AddComponent<BossRuntime>();
+
+        if (config == null && bossRuntime != null)
+            config = bossRuntime.config;
+
+        if (bossRuntime != null)
+        {
+            if (bossRuntime.config == null)
+                bossRuntime.config = config;
+
+            float initialHP = legacyCurrentHP > 0f ? legacyCurrentHP : legacyMaxHP;
+            bossRuntime.Initialize(config, player, initialHP, -1f, legacyMaxHP);
+        }
+
+        ApplyConfig();
+
         agent.updateRotation = false;
-        currentHP = Mathf.Clamp(currentHP, 0f, maxHP);
 
-        if (attacks == null || attacks.Length == 0)
-            attacks = CreateDefaultAttackSet();
+        if (legacyAttacks == null || legacyAttacks.Length == 0)
+            legacyAttacks = BossConfig.CreateDefaultAttackSet();
 
+        ApplyAttackPayloadDefaults();
         BuildCooldownTable();
+    }
+
+    void ApplyConfig()
+    {
+        if (config == null)
+            return;
+
+        engageDistance = config.engageDistance;
+        approachStopDistance = config.approachStopDistance;
+        repathInterval = config.repathInterval;
+        combatDistanceTolerance = config.combatDistanceTolerance;
+
+        if (bossRuntime != null)
+            bossRuntime.config = config;
+
+        if (staggerSystem != null)
+            staggerSystem.config = config;
+
+        ApplyBossAudioConfig();
+    }
+
+    BossAttackDefinition[] GetAttackSet()
+    {
+        if (config != null && config.attacks != null && config.attacks.Length > 0)
+            return config.attacks;
+
+        if (legacyAttacks == null || legacyAttacks.Length == 0)
+            legacyAttacks = BossConfig.CreateDefaultAttackSet();
+
+        return legacyAttacks;
+    }
+
+    void ApplyBossAudioConfig()
+    {
+        if (combatAudioController == null || config == null || config.audio == null)
+            return;
+
+        if (HasAnyClip(config.audio.hurtVoiceClips))
+            combatAudioController.hurtClips = config.audio.hurtVoiceClips;
+
+        if (HasAnyClip(config.audio.dieVoiceClips))
+            combatAudioController.dieVoiceClips = config.audio.dieVoiceClips;
+    }
+
+    void ApplyAttackPayloadDefaults()
+    {
+        if (attacks == null)
+            return;
+
+        BossAttackData[] defaults = BossConfig.CreateDefaultAttackSet();
+
+        for (int i = 0; i < attacks.Length; i++)
+        {
+            BossAttackDefinition attack = attacks[i];
+            if (attack == null)
+                continue;
+
+            BossAttackDefinition defaultAttack = FindAttack(defaults, attack.attackIndex);
+            if (defaultAttack == null)
+                continue;
+
+            if (attack.damage <= 0f)
+                attack.damage = defaultAttack.damage;
+
+            if (attack.actualAttackRange <= 0f)
+                attack.actualAttackRange = defaultAttack.ActualRange;
+
+            if (attack.projectileSpeed <= 0f)
+                attack.projectileSpeed = defaultAttack.projectileSpeed;
+
+            if (attack.projectileLifeTime <= 0f)
+                attack.projectileLifeTime = defaultAttack.projectileLifeTime;
+
+            if (attack.meleeWindows == null || attack.meleeWindows.Length == 0)
+                attack.meleeWindows = defaultAttack.meleeWindows;
+        }
+    }
+
+    BossAttackDefinition FindAttack(BossAttackDefinition[] source, int attackIndex)
+    {
+        if (source == null)
+            return null;
+
+        for (int i = 0; i < source.Length; i++)
+        {
+            BossAttackDefinition attack = source[i];
+            if (attack != null && attack.attackIndex == attackIndex)
+                return attack;
+        }
+
+        return null;
+    }
+
+    bool HasAnyClip(AudioClip[] clips)
+    {
+        if (clips == null || clips.Length == 0)
+            return false;
+
+        for (int i = 0; i < clips.Length; i++)
+        {
+            if (clips[i] != null)
+                return true;
+        }
+
+        return false;
     }
 
     void Start()
     {
-        if (animatorController != null && player != null)
-            animatorController.SetTarget(player);
+        SetCurrentTarget(player);
 
         if (meleeDamageWindow != null)
             meleeDamageWindow.ownerAI = this;
@@ -99,6 +258,8 @@ public class BOSSAI : MonoBehaviour, IDamageable
     {
         if (player == null || currentState == BossState.Dead)
             return;
+
+        EnsureValidCurrentTarget();
 
         if (staggerSystem != null && staggerSystem.ShouldLockBossAction())
         {
@@ -118,7 +279,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
             return;
         }
 
-        float distance = DistanceToPlayer();
+        float distance = DistanceToCurrentTarget();
         if (distance > engageDistance)
         {
             StopMove();
@@ -134,6 +295,30 @@ public class BOSSAI : MonoBehaviour, IDamageable
         }
 
         UpdatePositioning(distance);
+    }
+
+    void SetCurrentTarget(Transform target)
+    {
+        if (target == null)
+            target = player;
+
+        if (bossRuntime != null)
+            bossRuntime.currentTarget = target;
+
+        if (animatorController != null)
+            animatorController.SetTarget(target);
+
+        if (rangedSkillCaster != null)
+            rangedSkillCaster.target = target;
+    }
+
+    void EnsureValidCurrentTarget()
+    {
+        Transform target = CurrentTarget;
+        if (target != null && target.gameObject.activeInHierarchy && !IsTargetDead(target))
+            return;
+
+        SetCurrentTarget(player);
     }
 
     void BuildCooldownTable()
@@ -154,10 +339,14 @@ public class BOSSAI : MonoBehaviour, IDamageable
         }
     }
 
-    float DistanceToPlayer()
+    float DistanceToCurrentTarget()
     {
+        Transform target = CurrentTarget;
+        if (target == null)
+            return float.MaxValue;
+
         Vector3 a = transform.position;
-        Vector3 b = player.position;
+        Vector3 b = target.position;
         a.y = 0f;
         b.y = 0f;
         return Vector3.Distance(a, b);
@@ -243,7 +432,14 @@ public class BOSSAI : MonoBehaviour, IDamageable
     {
         currentState = BossState.Approach;
 
-        Vector3 direction = player.position - transform.position;
+        Transform target = CurrentTarget;
+        if (target == null)
+        {
+            StopMove();
+            return;
+        }
+
+        Vector3 direction = target.position - transform.position;
         direction.y = 0f;
 
         if (direction.sqrMagnitude < 0.0001f)
@@ -259,7 +455,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
             return;
         }
 
-        Vector3 desiredPosition = player.position - direction.normalized * desiredDistance;
+        Vector3 desiredPosition = target.position - direction.normalized * desiredDistance;
         if (Time.time - lastRepathTime <= repathInterval)
             return;
 
@@ -319,8 +515,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
 
         currentAttack = attack;
         currentAttackElapsed = 0f;
-        currentAttackIndex = attack.attackIndex;
-        currentAttackPhase = BossAttackPhase.Startup;
+        SetAttackRuntime(attack.attackIndex, BossAttackPhase.Startup);
         currentAttackWindowIndex = 0;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
@@ -339,9 +534,9 @@ public class BOSSAI : MonoBehaviour, IDamageable
 
         if (animatorController != null)
         {
-            animatorController.SetTarget(player);
+            animatorController.SetTarget(CurrentTarget);
             animatorController.RequestAttack(attack);
-            animatorController.SyncAttackPhase(currentAttackPhase);
+            animatorController.SyncAttackPhase(BossAttackPhase.Startup);
         }
     }
 
@@ -369,18 +564,29 @@ public class BOSSAI : MonoBehaviour, IDamageable
 
     void SetAttackPhase(BossAttackPhase phase)
     {
-        currentAttackPhase = phase;
+        SetAttackRuntime(currentAttackIndex, phase);
 
         if (animatorController != null)
             animatorController.SyncAttackPhase(phase);
+    }
+
+    void SetAttackRuntime(int attackIndex, BossAttackPhase phase)
+    {
+        if (bossRuntime != null)
+            bossRuntime.SetAttackRuntime(attackIndex, phase);
+    }
+
+    void ClearAttackRuntime()
+    {
+        if (bossRuntime != null)
+            bossRuntime.ClearAttackRuntime();
     }
 
     void FinishAttack()
     {
         currentAttack = null;
         currentAttackElapsed = 0f;
-        currentAttackIndex = -1;
-        currentAttackPhase = BossAttackPhase.None;
+        ClearAttackRuntime();
         currentAttackWindowIndex = 0;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
@@ -418,8 +624,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
         SetWeaponTrailActive(false);
         currentAttack = null;
         currentAttackElapsed = 0f;
-        currentAttackIndex = -1;
-        currentAttackPhase = BossAttackPhase.None;
+        ClearAttackRuntime();
         currentAttackWindowIndex = 0;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
@@ -441,6 +646,14 @@ public class BOSSAI : MonoBehaviour, IDamageable
         currentState = BossState.Dead;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
+
+        if (combatAudioController != null)
+        {
+            if (config != null && config.audio != null && HasAnyClip(config.audio.dieVoiceClips))
+                combatAudioController.PlayDieVoice(config.audio.dieVoiceClips);
+            else
+                combatAudioController.PlayDieVoice();
+        }
 
         if (meleeDamageWindow != null)
             meleeDamageWindow.ForceCloseWindow();
@@ -466,12 +679,147 @@ public class BOSSAI : MonoBehaviour, IDamageable
         if (safeAmount <= 0f)
             return;
 
-        if (combatAudioController != null)
-            combatAudioController.PlayHurt();
+        TrackRecentDamage(attacker, safeAmount);
 
-        currentHP = Mathf.Max(0f, currentHP - safeAmount);
+        if (combatAudioController != null)
+        {
+            if (config != null && config.audio != null && HasAnyClip(config.audio.hurtVoiceClips))
+                combatAudioController.PlayHurt(config.audio.hurtVoiceClips);
+            else
+                combatAudioController.PlayHurt();
+        }
+
+        if (bossRuntime != null)
+            bossRuntime.TakeDamage(safeAmount);
+        else
+            legacyCurrentHP = Mathf.Max(0f, legacyCurrentHP - safeAmount);
+
         if (currentHP <= 0f)
             Die();
+    }
+
+    void TrackRecentDamage(GameObject attacker, float amount)
+    {
+        if (attacker == null)
+            return;
+
+        GuardRuntime guardSource = attacker.GetComponentInParent<GuardRuntime>();
+        if (guardSource == null)
+            guardSource = attacker.GetComponentInChildren<GuardRuntime>(true);
+
+        if (guardSource != null && !guardSource.isDead)
+        {
+            if (!recentGuardDamageBySource.TryGetValue(guardSource, out List<DamageRecord> guardRecords))
+            {
+                guardRecords = new List<DamageRecord>();
+                recentGuardDamageBySource.Add(guardSource, guardRecords);
+            }
+
+            AddDamageRecord(guardRecords, amount);
+            TrySwitchTargetFromDamage(guardSource.transform, SumRecentDamage(guardRecords), guardSwitchDamageThreshold);
+            return;
+        }
+
+        if (!IsPlayerDamageSource(attacker))
+            return;
+
+        AddDamageRecord(recentPlayerDamage, amount);
+        TrySwitchTargetFromDamage(player, SumRecentDamage(recentPlayerDamage), playerSwitchDamageThreshold);
+    }
+
+    bool IsPlayerDamageSource(GameObject attacker)
+    {
+        if (attacker == null)
+            return false;
+
+        if (attacker.GetComponentInParent<PlayerController>() != null)
+            return true;
+
+        if (attacker.GetComponentInChildren<PlayerController>(true) != null)
+            return true;
+
+        if (attacker.GetComponentInParent<PlayerStatsRuntime>() != null)
+            return true;
+
+        if (attacker.GetComponentInChildren<PlayerStatsRuntime>(true) != null)
+            return true;
+
+        return attacker.CompareTag("Player") || attacker.transform.root.CompareTag("Player");
+    }
+
+    void AddDamageRecord(List<DamageRecord> records, float amount)
+    {
+        if (records == null)
+            return;
+
+        records.Add(new DamageRecord(Time.time, amount));
+        TrimDamageRecords(records);
+    }
+
+    float SumRecentDamage(List<DamageRecord> records)
+    {
+        if (records == null)
+            return 0f;
+
+        TrimDamageRecords(records);
+
+        float total = 0f;
+        for (int i = 0; i < records.Count; i++)
+            total += records[i].amount;
+
+        return total;
+    }
+
+    void TrimDamageRecords(List<DamageRecord> records)
+    {
+        if (records == null)
+            return;
+
+        float oldestAllowedTime = Time.time - Mathf.Max(0.01f, damageWindowDuration);
+        for (int i = records.Count - 1; i >= 0; i--)
+        {
+            if (records[i].time < oldestAllowedTime)
+                records.RemoveAt(i);
+        }
+    }
+
+    void TrySwitchTargetFromDamage(Transform target, float recentDamageTotal, float threshold)
+    {
+        if (target == null)
+            return;
+
+        if (CurrentTarget == target)
+            return;
+
+        if (recentDamageTotal <= threshold)
+            return;
+
+        if (Time.time < nextAllowedTargetSwitchTime)
+            return;
+
+        SetCurrentTarget(target);
+        nextAllowedTargetSwitchTime = Time.time + Mathf.Max(0f, targetSwitchCooldown);
+    }
+
+    bool IsTargetDead(Transform target)
+    {
+        if (target == null)
+            return true;
+
+        GuardRuntime guard = target.GetComponentInParent<GuardRuntime>();
+        if (guard != null)
+            return guard.isDead;
+
+        PlayerController playerController = target.GetComponentInParent<PlayerController>();
+        if (playerController != null)
+            return playerController.IsDead();
+
+        return false;
+    }
+
+    public bool IsDead()
+    {
+        return currentState == BossState.Dead || currentHP <= 0f;
     }
 
     void SetWeaponTrailForAttack(BossAttackDefinition attack)
@@ -479,7 +827,139 @@ public class BOSSAI : MonoBehaviour, IDamageable
         if (weaponTrailVFX == null || attack == null)
             return;
 
-        weaponTrailVFX.SetTrailSet(GetTrailSetForAttack(attack.attackIndex));
+        weaponTrailVFX.SetTrailSet(GetTrailSetForAttack(attack.attackIndex), attack.slashTrails);
+    }
+
+    public BossAttackDefinition GetAttackDefinition(int attackIndex)
+    {
+        if (attacks == null)
+            return null;
+
+        for (int i = 0; i < attacks.Length; i++)
+        {
+            BossAttackDefinition attack = attacks[i];
+            if (attack != null && attack.attackIndex == attackIndex)
+                return attack;
+        }
+
+        return null;
+    }
+
+    BossMeleeWindowData GetAttackWindowData(int attackIndex, int windowIndex)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        return attack != null ? attack.GetMeleeWindow(windowIndex) : null;
+    }
+
+    public float GetAttackDamage(int attackIndex, int windowIndex, float fallback)
+    {
+        BossMeleeWindowData windowData = GetAttackWindowData(attackIndex, windowIndex);
+        if (windowData != null)
+            return Mathf.Max(0f, windowData.damage);
+
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        if (attack != null)
+            return Mathf.Max(0f, attack.damage);
+
+        return Mathf.Max(0f, fallback);
+    }
+
+    public float GetAttackRadius(int attackIndex, int windowIndex, float fallback)
+    {
+        BossMeleeWindowData windowData = GetAttackWindowData(attackIndex, windowIndex);
+        if (windowData != null)
+            return Mathf.Max(0f, windowData.radius);
+
+        return Mathf.Max(0f, fallback);
+    }
+
+    public float GetAttackFacingAngle(int attackIndex, int windowIndex, float fallback)
+    {
+        BossMeleeWindowData windowData = GetAttackWindowData(attackIndex, windowIndex);
+        if (windowData != null)
+            return Mathf.Clamp(windowData.facingAngle, 0f, 180f);
+
+        return Mathf.Clamp(fallback, 0f, 180f);
+    }
+
+    public float GetProjectileDamage(int attackIndex, float fallback)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        if (attack != null)
+            return Mathf.Max(0f, attack.damage);
+
+        return Mathf.Max(0f, fallback);
+    }
+
+    public float GetProjectileSpeed(int attackIndex, float fallback)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        if (attack != null && attack.projectileSpeed > 0f)
+            return attack.projectileSpeed;
+
+        return Mathf.Max(0f, fallback);
+    }
+
+    public float GetProjectileLifeTime(int attackIndex, float fallback)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        if (attack != null && attack.projectileLifeTime > 0f)
+            return attack.projectileLifeTime;
+
+        return Mathf.Max(0.01f, fallback);
+    }
+
+    public GameObject GetAttackHitEffectPrefab(int attackIndex)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        return attack != null ? attack.hitEffectPrefab : null;
+    }
+
+    public float GetAttackHitEffectLifetime(int attackIndex, float fallback)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        if (attack != null && attack.hitEffectLifetime > 0f)
+            return attack.hitEffectLifetime;
+
+        return Mathf.Max(0.01f, fallback);
+    }
+
+    public float GetAttackHitEffectNormalOffset(int attackIndex, float fallback)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        if (attack != null)
+            return Mathf.Max(0f, attack.hitEffectNormalOffset);
+
+        return Mathf.Max(0f, fallback);
+    }
+
+    public void PlayCurrentAttackHitVFX(Vector3 position, Vector3 normal)
+    {
+        if (currentAttack == null || currentAttack.hitEffectPrefab == null)
+            return;
+
+        SpawnHitEffect(
+            currentAttack.hitEffectPrefab,
+            position,
+            normal,
+            currentAttack.hitEffectLifetime,
+            currentAttack.hitEffectNormalOffset
+        );
+    }
+
+    void SpawnHitEffect(GameObject prefab, Vector3 position, Vector3 normal, float lifetime, float normalOffset)
+    {
+        if (prefab == null)
+            return;
+
+        Vector3 safeNormal = normal.sqrMagnitude > 0.0001f
+            ? normal.normalized
+            : Vector3.up;
+
+        Vector3 spawnPosition = position + safeNormal * Mathf.Max(0f, normalOffset);
+        Quaternion rotation = Quaternion.LookRotation(safeNormal, Vector3.up);
+        GameObject instance = Instantiate(prefab, spawnPosition, rotation);
+        Destroy(instance, Mathf.Max(0.01f, lifetime));
     }
 
     void SetWeaponTrailActive(bool active)
@@ -535,7 +1015,12 @@ public class BOSSAI : MonoBehaviour, IDamageable
             return;
 
         if (!attackHitConfirmedThisWindow && combatAudioController != null)
-            combatAudioController.PlayAttackMiss();
+        {
+            if (currentAttack != null && HasAnyClip(currentAttack.attackMissClips))
+                combatAudioController.PlayAttackMiss(currentAttack.attackMissClips);
+            else
+                combatAudioController.PlayAttackMiss();
+        }
 
         meleeDamageWindow.CloseWindow();
         currentAttackWindowIndex = 0;
@@ -576,7 +1061,10 @@ public class BOSSAI : MonoBehaviour, IDamageable
         if (combatAudioController == null)
             return;
 
-        combatAudioController.PlayAttackStart();
+        if (currentAttack != null && (HasAnyClip(currentAttack.attackVoiceClips) || HasAnyClip(currentAttack.attackSwingClips)))
+            combatAudioController.PlayAttackStart(currentAttack.attackVoiceClips, currentAttack.attackSwingClips);
+        else
+            combatAudioController.PlayAttackStart();
     }
 
     public void NotifyAttackHitConfirmed()
@@ -591,7 +1079,12 @@ public class BOSSAI : MonoBehaviour, IDamageable
         rangedAttackResultPending = false;
 
         if (combatAudioController != null)
-            combatAudioController.PlayAttackHit();
+        {
+            if (currentAttack != null && HasAnyClip(currentAttack.attackHitClips))
+                combatAudioController.PlayAttackHit(currentAttack.attackHitClips);
+            else
+                combatAudioController.PlayAttackHit();
+        }
     }
 
     public void NotifyRangedAttackMiss()
@@ -605,7 +1098,12 @@ public class BOSSAI : MonoBehaviour, IDamageable
         rangedAttackResultPending = false;
 
         if (!attackHitConfirmedThisWindow && combatAudioController != null)
-            combatAudioController.PlayAttackMiss();
+        {
+            if (currentAttack != null && HasAnyClip(currentAttack.attackMissClips))
+                combatAudioController.PlayAttackMiss(currentAttack.attackMissClips);
+            else
+                combatAudioController.PlayAttackMiss();
+        }
     }
 
     void OnDrawGizmosSelected()
@@ -620,186 +1118,4 @@ public class BOSSAI : MonoBehaviour, IDamageable
         Gizmos.DrawWireSphere(transform.position, approachStopDistance);
     }
 
-    static BossAttackDefinition[] CreateDefaultAttackSet()
-    {
-        return new[]
-        {
-            new BossAttackDefinition
-            {
-                displayName = "Normal 1",
-                attackIndex = 0,
-                category = BossAttackCategory.Normal,
-                cooldown = 4f,
-                minRange = 0f,
-                maxRange = 4f,
-                preferredDistance = 4f,
-                priority = 10,
-                startupDuration = 0.25f,
-                activeDuration = 0.2f,
-                recoveryDuration = 0.45f,
-                alignBeforeAttack = true,
-                useRootMotionPosition = true,
-                useRootMotionRotation = true,
-                trackTargetUntilDirectionLock = false,
-                requireDirectionLockEvent = false,
-                opensMeleeWindow = true,
-                firesProjectile = false,
-                interruptibleInStartup = false,
-                interruptibleInActive = false,
-                interruptibleInRecovery = true
-            },
-            new BossAttackDefinition
-            {
-                displayName = "Normal 2",
-                attackIndex = 1,
-                category = BossAttackCategory.Normal,
-                cooldown = 4f,
-                minRange = 0f,
-                maxRange = 4f,
-                preferredDistance = 4f,
-                priority = 10,
-                startupDuration = 0.28f,
-                activeDuration = 0.2f,
-                recoveryDuration = 0.42f,
-                alignBeforeAttack = true,
-                useRootMotionPosition = true,
-                useRootMotionRotation = true,
-                trackTargetUntilDirectionLock = false,
-                requireDirectionLockEvent = false,
-                opensMeleeWindow = true,
-                firesProjectile = false,
-                interruptibleInStartup = false,
-                interruptibleInActive = false,
-                interruptibleInRecovery = true
-            },
-            new BossAttackDefinition
-            {
-                displayName = "Normal 3",
-                attackIndex = 2,
-                category = BossAttackCategory.Normal,
-                cooldown = 4f,
-                minRange = 0f,
-                maxRange = 4.5f,
-                preferredDistance = 4f,
-                priority = 11,
-                startupDuration = 0.32f,
-                activeDuration = 0.22f,
-                recoveryDuration = 0.42f,
-                alignBeforeAttack = true,
-                useRootMotionPosition = true,
-                useRootMotionRotation = true,
-                trackTargetUntilDirectionLock = false,
-                requireDirectionLockEvent = false,
-                opensMeleeWindow = true,
-                firesProjectile = false,
-                interruptibleInStartup = false,
-                interruptibleInActive = false,
-                interruptibleInRecovery = true
-            },
-            new BossAttackDefinition
-            {
-                displayName = "Melee Skill 1",
-                attackIndex = 3,
-                category = BossAttackCategory.MeleeSkill,
-                cooldown = 8f,
-                minRange = 0f,
-                maxRange = 6f,
-                preferredDistance = 4.5f,
-                priority = 20,
-                startupDuration = 0.35f,
-                activeDuration = 0.22f,
-                recoveryDuration = 0.38f,
-                alignBeforeAttack = true,
-                useRootMotionPosition = true,
-                useRootMotionRotation = false,
-                trackTargetUntilDirectionLock = true,
-                requireDirectionLockEvent = true,
-                maxTurnAngle = 35f,
-                turnSpeed = 360f,
-                opensMeleeWindow = true,
-                firesProjectile = false,
-                interruptibleInStartup = false,
-                interruptibleInActive = false,
-                interruptibleInRecovery = true
-            },
-            new BossAttackDefinition
-            {
-                displayName = "Melee Skill 2",
-                attackIndex = 4,
-                category = BossAttackCategory.MeleeSkill,
-                cooldown = 10f,
-                minRange = 0f,
-                maxRange = 6.5f,
-                preferredDistance = 5f,
-                priority = 21,
-                startupDuration = 0.38f,
-                activeDuration = 0.24f,
-                recoveryDuration = 0.4f,
-                alignBeforeAttack = true,
-                useRootMotionPosition = true,
-                useRootMotionRotation = false,
-                trackTargetUntilDirectionLock = true,
-                requireDirectionLockEvent = true,
-                maxTurnAngle = 35f,
-                turnSpeed = 360f,
-                opensMeleeWindow = true,
-                firesProjectile = false,
-                interruptibleInStartup = false,
-                interruptibleInActive = false,
-                interruptibleInRecovery = true
-            },
-            new BossAttackDefinition
-            {
-                displayName = "Melee Skill 3",
-                attackIndex = 5,
-                category = BossAttackCategory.MeleeSkill,
-                cooldown = 10f,
-                minRange = 0f,
-                maxRange = 6.5f,
-                preferredDistance = 5f,
-                priority = 22,
-                startupDuration = 0.42f,
-                activeDuration = 0.24f,
-                recoveryDuration = 0.42f,
-                alignBeforeAttack = true,
-                useRootMotionPosition = true,
-                useRootMotionRotation = false,
-                trackTargetUntilDirectionLock = true,
-                requireDirectionLockEvent = true,
-                maxTurnAngle = 35f,
-                turnSpeed = 360f,
-                opensMeleeWindow = true,
-                firesProjectile = false,
-                interruptibleInStartup = false,
-                interruptibleInActive = false,
-                interruptibleInRecovery = true
-            },
-            new BossAttackDefinition
-            {
-                displayName = "Ranged",
-                attackIndex = 6,
-                category = BossAttackCategory.Ranged,
-                cooldown = 15f,
-                minRange = 4.5f,
-                maxRange = 12f,
-                preferredDistance = 8f,
-                priority = 18,
-                startupDuration = 0.4f,
-                activeDuration = 0.2f,
-                recoveryDuration = 0.45f,
-                alignBeforeAttack = true,
-                useRootMotionPosition = true,
-                useRootMotionRotation = false,
-                trackTargetUntilDirectionLock = true,
-                requireDirectionLockEvent = true,
-                maxTurnAngle = 35f,
-                turnSpeed = 360f,
-                opensMeleeWindow = false,
-                firesProjectile = true,
-                interruptibleInStartup = false,
-                interruptibleInActive = false,
-                interruptibleInRecovery = true
-            }
-        };
-    }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class BossStaggerSystem : MonoBehaviour
 {
@@ -22,6 +23,8 @@ public class BossStaggerSystem : MonoBehaviour
     [Header("Refs")]
     public BOSSAI bossAI;
     public BossAnimatorController animatorController;
+    public BossRuntime bossRuntime;
+    public BossConfig config;
 
     [Header("Animator Params")]
     public string hitTriggerParam = "HitTrigger";
@@ -30,8 +33,8 @@ public class BossStaggerSystem : MonoBehaviour
     public float hitReactionInterruptBlendDuration = 0.05f;
 
     [Header("RV")]
-    public float maxRV = 200f;
-    public float currentRV = 200f;
+    [FormerlySerializedAs("maxRV"), SerializeField, HideInInspector] private float legacyMaxRV = 200f;
+    [FormerlySerializedAs("currentRV"), SerializeField, HideInInspector] private float legacyCurrentRV = 200f;
     [Range(0f, 1f)]
     public float alwaysOpenThresholdPercent = 0.3f;
 
@@ -53,6 +56,30 @@ public class BossStaggerSystem : MonoBehaviour
     public float executeDistance = 4f;
     public float executeDamage = 80f;
 
+    public float maxRV
+    {
+        get => bossRuntime != null ? bossRuntime.maxRV : legacyMaxRV;
+        private set
+        {
+            if (bossRuntime != null)
+                bossRuntime.maxRV = value;
+            else
+                legacyMaxRV = value;
+        }
+    }
+
+    public float currentRV
+    {
+        get => bossRuntime != null ? bossRuntime.currentRV : legacyCurrentRV;
+        private set
+        {
+            if (bossRuntime != null)
+                bossRuntime.SetRV(value);
+            else
+                legacyCurrentRV = Mathf.Clamp(value, 0f, legacyMaxRV);
+        }
+    }
+
     float lastHitTime = -999f;
 
     bool staggerWindowOpen = true;
@@ -72,9 +99,50 @@ public class BossStaggerSystem : MonoBehaviour
         if (animatorController == null)
             animatorController = GetComponent<BossAnimatorController>();
 
-        currentRV = Mathf.Clamp(currentRV, 0f, maxRV);
+        if (bossRuntime == null)
+            bossRuntime = GetComponent<BossRuntime>();
+        if (bossRuntime == null)
+            bossRuntime = gameObject.AddComponent<BossRuntime>();
+
+        if (config == null)
+        {
+            if (bossRuntime != null && bossRuntime.config != null)
+                config = bossRuntime.config;
+            else if (bossAI != null)
+                config = bossAI.config;
+        }
+
+        ApplyConfig();
+
+        currentRV = Mathf.Clamp(legacyCurrentRV, 0f, maxRV);
         staggerWindowOpen = true;
         staggerCycleTimer = 0f;
+    }
+
+    void Start()
+    {
+        if (config == null && bossAI != null)
+            config = bossAI.config;
+
+        ApplyConfig();
+        currentRV = Mathf.Clamp(currentRV, 0f, maxRV);
+    }
+
+    void ApplyConfig()
+    {
+        if (config == null)
+            return;
+
+        maxRV = Mathf.Max(1f, config.maxRV);
+        alwaysOpenThresholdPercent = config.alwaysOpenThresholdPercent;
+        recoverDelay = config.recoverDelay;
+        recoverPerSecond = config.recoverPerSecond;
+        initialStaggerWindowDuration = config.initialStaggerWindowDuration;
+        superArmorDuration = config.superArmorDuration;
+        kneelIdleHoldDuration = config.kneelIdleHoldDuration;
+        standBoolReleaseDelay = config.standBoolReleaseDelay;
+        executeDistance = config.executeDistance;
+        executeDamage = config.executeDamage;
     }
 
     void Update()
@@ -263,6 +331,8 @@ public class BossStaggerSystem : MonoBehaviour
 
         kneelPhase = KneelSequencePhase.WaitingKneelState;
         kneelIdleHoldTimer = 0f;
+        if (bossRuntime != null)
+            bossRuntime.isKneeling = true;
 
         waitingToReleaseKneelBool = false;
         releaseKneelBoolTimer = 0f;
@@ -289,6 +359,8 @@ public class BossStaggerSystem : MonoBehaviour
     {
         kneelPhase = KneelSequencePhase.None;
         kneelIdleHoldTimer = 0f;
+        if (bossRuntime != null)
+            bossRuntime.isKneeling = false;
 
         waitingToReleaseKneelBool = false;
         releaseKneelBoolTimer = 0f;

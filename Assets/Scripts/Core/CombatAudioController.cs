@@ -15,10 +15,9 @@ public class CombatAudioController : MonoBehaviour
     public AudioClip[] blockedHitClips;
     public AudioClip[] hurtClips;
 
-    [Header("Hit Effect")]
-    public GameObject hitEffectPrefab;
-    public float hitEffectLifetime = 0.75f;
-    public float hitEffectNormalOffset = 0.02f;
+    [Header("Voice")]
+    public AudioClip[] dieVoiceClips;
+    public AudioClip[] berserkVoiceClips;
 
     void Reset()
     {
@@ -37,14 +36,30 @@ public class CombatAudioController : MonoBehaviour
         PlayRandomClip(attackSwingClips);
     }
 
+    public void PlayAttackStart(AudioClip[] voiceClips, AudioClip[] swingClips)
+    {
+        PlayRandomClip(voiceClips);
+        PlayRandomClip(swingClips);
+    }
+
     public void PlayAttackHit()
     {
         PlayRandomClip(attackHitClips);
     }
 
+    public void PlayAttackHit(AudioClip[] clips)
+    {
+        PlayRandomClip(clips);
+    }
+
     public void PlayAttackMiss()
     {
         PlayRandomClip(attackMissClips);
+    }
+
+    public void PlayAttackMiss(AudioClip[] clips)
+    {
+        PlayRandomClip(clips);
     }
 
     public void PlayBlockedHit()
@@ -57,19 +72,24 @@ public class CombatAudioController : MonoBehaviour
         PlayRandomClip(hurtClips);
     }
 
-    public void PlayHitEffect(Vector3 position, Vector3 normal)
+    public void PlayHurt(AudioClip[] clips)
     {
-        if (hitEffectPrefab == null)
-            return;
+        PlayRandomClip(clips);
+    }
 
-        Vector3 safeNormal = normal.sqrMagnitude > 0.0001f
-            ? normal.normalized
-            : Vector3.up;
+    public void PlayDieVoice()
+    {
+        PlayRandomClip(dieVoiceClips);
+    }
 
-        Vector3 spawnPosition = position + safeNormal * Mathf.Max(0f, hitEffectNormalOffset);
-        Quaternion rotation = Quaternion.LookRotation(safeNormal, Vector3.up);
-        GameObject instance = Instantiate(hitEffectPrefab, spawnPosition, rotation);
-        Destroy(instance, Mathf.Max(0.01f, hitEffectLifetime));
+    public void PlayDieVoice(AudioClip[] clips)
+    {
+        PlayRandomClip(clips);
+    }
+
+    public void PlayBerserkVoice()
+    {
+        PlayRandomClip(berserkVoiceClips);
     }
 
     void PlayRandomClip(AudioClip[] clips)

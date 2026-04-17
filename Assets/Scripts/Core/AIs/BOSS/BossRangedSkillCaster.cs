@@ -42,9 +42,12 @@ public class BossRangedSkillCaster : MonoBehaviour
             ownerAI != null ? ownerAI.gameObject : gameObject,
             ownerAI,
             direction,
-            cfg.damage,
-            cfg.speed,
-            cfg.lifeTime
+            ownerAI != null ? ownerAI.GetProjectileDamage(attackIndex, cfg.damage) : cfg.damage,
+            ownerAI != null ? ownerAI.GetProjectileSpeed(attackIndex, cfg.speed) : cfg.speed,
+            ownerAI != null ? ownerAI.GetProjectileLifeTime(attackIndex, cfg.lifeTime) : cfg.lifeTime,
+            ownerAI != null ? ownerAI.GetAttackHitEffectPrefab(attackIndex) : null,
+            ownerAI != null ? ownerAI.GetAttackHitEffectLifetime(attackIndex, 0.75f) : 0.75f,
+            ownerAI != null ? ownerAI.GetAttackHitEffectNormalOffset(attackIndex, 0.02f) : 0.02f
         );
 
         return true;

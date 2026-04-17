@@ -21,15 +21,17 @@ public class BossWeaponTrailController : MonoBehaviour
     [SerializeField] private TrailRenderer[] rangedAttackTrails;
 
     private TrailSet activeTrailSet = TrailSet.Normal;
+    private TrailRenderer[] activeAttackTrails;
 
     private void Awake()
     {
         SetAllTrailState(false, clearTrails: true);
     }
 
-    public void SetTrailSet(TrailSet trailSet)
+    public void SetTrailSet(TrailSet trailSet, TrailRenderer[] attackTrails = null)
     {
         activeTrailSet = trailSet;
+        activeAttackTrails = HasAnyTrail(attackTrails) ? attackTrails : null;
     }
 
     public void TrailOn()
@@ -44,25 +46,28 @@ public class BossWeaponTrailController : MonoBehaviour
 
     TrailRenderer[] GetTrailsForActiveSet()
     {
+        if (HasAnyTrail(activeAttackTrails))
+            return activeAttackTrails;
+
         switch (activeTrailSet)
         {
             case TrailSet.MeleeSkill1:
-                if (meleeSkill1Trails != null && meleeSkill1Trails.Length > 0)
+                if (HasAnyTrail(meleeSkill1Trails))
                     return meleeSkill1Trails;
                 break;
 
             case TrailSet.MeleeSkill2:
-                if (meleeSkill2Trails != null && meleeSkill2Trails.Length > 0)
+                if (HasAnyTrail(meleeSkill2Trails))
                     return meleeSkill2Trails;
                 break;
 
             case TrailSet.MeleeSkill3:
-                if (meleeSkill3Trails != null && meleeSkill3Trails.Length > 0)
+                if (HasAnyTrail(meleeSkill3Trails))
                     return meleeSkill3Trails;
                 break;
 
             case TrailSet.Ranged:
-                if (rangedAttackTrails != null && rangedAttackTrails.Length > 0)
+                if (HasAnyTrail(rangedAttackTrails))
                     return rangedAttackTrails;
                 break;
         }
@@ -77,6 +82,21 @@ public class BossWeaponTrailController : MonoBehaviour
         SetTrailState(meleeSkill2Trails, enabled, clearTrails);
         SetTrailState(meleeSkill3Trails, enabled, clearTrails);
         SetTrailState(rangedAttackTrails, enabled, clearTrails);
+        SetTrailState(activeAttackTrails, enabled, clearTrails);
+    }
+
+    bool HasAnyTrail(TrailRenderer[] trails)
+    {
+        if (trails == null || trails.Length == 0)
+            return false;
+
+        for (int i = 0; i < trails.Length; i++)
+        {
+            if (trails[i] != null)
+                return true;
+        }
+
+        return false;
     }
 
     void SetTrailState(TrailRenderer[] trails, bool enabled, bool clearTrails)
