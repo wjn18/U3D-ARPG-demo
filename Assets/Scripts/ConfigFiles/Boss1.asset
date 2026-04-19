@@ -37,7 +37,8 @@ MonoBehaviour:
     minRange: 0
     maxRange: 4.3
     preferredDistance: 4
-    priority: 10
+    attackSelectionPriority: 10
+    hitReactionPriority: 2
     animationTrigger: AttackTrigger
     animationStateName: 
     startupDuration: 0.25
@@ -82,7 +83,8 @@ MonoBehaviour:
     minRange: 0
     maxRange: 4.3
     preferredDistance: 4
-    priority: 10
+    attackSelectionPriority: 10
+    hitReactionPriority: 2
     animationTrigger: AttackTrigger
     animationStateName: 
     startupDuration: 0.28
@@ -126,7 +128,8 @@ MonoBehaviour:
     minRange: 0
     maxRange: 5.5
     preferredDistance: 5
-    priority: 11
+    attackSelectionPriority: 11
+    hitReactionPriority: 2
     animationTrigger: AttackTrigger
     animationStateName: 
     startupDuration: 0.32
@@ -146,7 +149,7 @@ MonoBehaviour:
     meleeWindows:
     - windowIndex: 0
       damage: 15
-      radius: 3
+      radius: 1.5
       facingAngle: 60
     projectileSpeed: 12
     projectileLifeTime: 5
@@ -170,7 +173,8 @@ MonoBehaviour:
     minRange: 0
     maxRange: 4.3
     preferredDistance: 4
-    priority: 20
+    attackSelectionPriority: 20
+    hitReactionPriority: 3
     animationTrigger: AttackTrigger
     animationStateName: 
     startupDuration: 0.35
@@ -213,7 +217,8 @@ MonoBehaviour:
     minRange: 0
     maxRange: 6.5
     preferredDistance: 5.5
-    priority: 21
+    attackSelectionPriority: 21
+    hitReactionPriority: 3
     animationTrigger: AttackTrigger
     animationStateName: 
     startupDuration: 0.38
@@ -233,7 +238,7 @@ MonoBehaviour:
     meleeWindows:
     - windowIndex: 0
       damage: 25
-      radius: 3
+      radius: 1.5
       facingAngle: 60
     projectileSpeed: 12
     projectileLifeTime: 5
@@ -257,7 +262,8 @@ MonoBehaviour:
     minRange: 0
     maxRange: 6.5
     preferredDistance: 5
-    priority: 22
+    attackSelectionPriority: 22
+    hitReactionPriority: 3
     animationTrigger: AttackTrigger
     animationStateName: 
     startupDuration: 0.42
@@ -277,12 +283,12 @@ MonoBehaviour:
     meleeWindows:
     - windowIndex: 0
       damage: 20
-      radius: 3
-      facingAngle: 80
+      radius: 1.5
+      facingAngle: 40
     - windowIndex: 1
       damage: 20
-      radius: 3
-      facingAngle: 80
+      radius: 1.5
+      facingAngle: 50
     projectileSpeed: 12
     projectileLifeTime: 5
     interruptibleInStartup: 0
@@ -305,7 +311,8 @@ MonoBehaviour:
     minRange: 4.5
     maxRange: 12
     preferredDistance: 10
-    priority: 18
+    attackSelectionPriority: 18
+    hitReactionPriority: 2
     animationTrigger: AttackTrigger
     animationStateName: 
     startupDuration: 0.4

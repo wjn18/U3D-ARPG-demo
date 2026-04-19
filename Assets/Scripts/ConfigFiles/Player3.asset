@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   baseMaxHP: 100
   hpPerLevel: 10
-  baseMaxSP: 100
+  baseMaxSP: 200
   spPerLevel: 5
   baseExpToNext: 100
   expGrowthPow: 1.2

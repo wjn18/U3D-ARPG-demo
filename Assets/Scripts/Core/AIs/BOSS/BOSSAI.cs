@@ -1,12 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.Serialization;
 
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(BossAnimatorController))]
 [RequireComponent(typeof(BossRuntime))]
-public class BOSSAI : MonoBehaviour, IDamageable
+public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
 {
     public enum BossState
     {
@@ -31,9 +30,6 @@ public class BOSSAI : MonoBehaviour, IDamageable
     public CombatAudioController combatAudioController;
     public BossRuntime bossRuntime;
 
-    [FormerlySerializedAs("maxHP"), SerializeField, HideInInspector] private float legacyMaxHP = 1000f;
-    [FormerlySerializedAs("currentHP"), SerializeField, HideInInspector] private float legacyCurrentHP = 1000f;
-
     [Header("Detection")]
     public float engageDistance = 25f;
 
@@ -48,13 +44,11 @@ public class BOSSAI : MonoBehaviour, IDamageable
     public float guardSwitchDamageThreshold = 25f;
     public float targetSwitchCooldown = 10f;
 
-    [FormerlySerializedAs("attacks"), SerializeField, HideInInspector] private BossAttackDefinition[] legacyAttacks = BossConfig.CreateDefaultAttackSet();
-
     [Header("Debug")]
     public bool drawGizmos = true;
 
-    public float maxHP => bossRuntime != null ? bossRuntime.maxHP : legacyMaxHP;
-    public float currentHP => bossRuntime != null ? bossRuntime.currentHP : legacyCurrentHP;
+    public float maxHP => bossRuntime != null ? bossRuntime.maxHP : 0f;
+    public float currentHP => bossRuntime != null ? bossRuntime.currentHP : 0f;
     public BossAttackDefinition[] attacks => GetAttackSet();
     public BossState currentState
     {
@@ -123,16 +117,12 @@ public class BOSSAI : MonoBehaviour, IDamageable
             if (bossRuntime.config == null)
                 bossRuntime.config = config;
 
-            float initialHP = legacyCurrentHP > 0f ? legacyCurrentHP : legacyMaxHP;
-            bossRuntime.Initialize(config, player, initialHP, -1f, legacyMaxHP);
+            bossRuntime.Initialize(config, player);
         }
 
         ApplyConfig();
 
         agent.updateRotation = false;
-
-        if (legacyAttacks == null || legacyAttacks.Length == 0)
-            legacyAttacks = BossConfig.CreateDefaultAttackSet();
 
         ApplyAttackPayloadDefaults();
         BuildCooldownTable();
@@ -162,10 +152,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
         if (config != null && config.attacks != null && config.attacks.Length > 0)
             return config.attacks;
 
-        if (legacyAttacks == null || legacyAttacks.Length == 0)
-            legacyAttacks = BossConfig.CreateDefaultAttackSet();
-
-        return legacyAttacks;
+        return BossConfig.CreateDefaultAttackSet();
     }
 
     void ApplyBossAudioConfig()
@@ -393,7 +380,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
 
     int EvaluateAttackScore(BossAttackDefinition attack, float distanceToPlayer)
     {
-        int score = attack.priority * 1000;
+        int score = attack.attackPriority * 1000;
         score -= Mathf.RoundToInt(Mathf.Abs(attack.PreferredRange - distanceToPlayer) * 100f);
 
         switch (attack.category)
@@ -488,7 +475,7 @@ public class BOSSAI : MonoBehaviour, IDamageable
             if (attack == null)
                 continue;
 
-            int score = attack.priority * 1000;
+            int score = attack.attackPriority * 1000;
 
             if (IsAttackReady(attack))
                 score += 200;
@@ -681,6 +668,9 @@ public class BOSSAI : MonoBehaviour, IDamageable
 
         TrackRecentDamage(attacker, safeAmount);
 
+        if (staggerSystem != null)
+            staggerSystem.TakeStaggerDamage(safeAmount, ResolveHitType(attacker), attacker);
+
         if (combatAudioController != null)
         {
             if (config != null && config.audio != null && HasAnyClip(config.audio.hurtVoiceClips))
@@ -689,13 +679,33 @@ public class BOSSAI : MonoBehaviour, IDamageable
                 combatAudioController.PlayHurt();
         }
 
-        if (bossRuntime != null)
-            bossRuntime.TakeDamage(safeAmount);
-        else
-            legacyCurrentHP = Mathf.Max(0f, legacyCurrentHP - safeAmount);
+        if (bossRuntime == null)
+            return;
+
+        bossRuntime.TakeDamage(safeAmount);
 
         if (currentHP <= 0f)
             Die();
+    }
+
+    BossStaggerSystem.PlayerHitType ResolveHitType(GameObject attacker)
+    {
+        if (attacker != null)
+        {
+            MonoBehaviour[] components = attacker.GetComponentsInParent<MonoBehaviour>(true);
+            for (int i = 0; i < components.Length; i++)
+            {
+                if (components[i] is ICombatPrioritySource prioritySource)
+                {
+                    int incomingPriority = Mathf.Max(1, prioritySource.GetCombatPriority());
+                    return incomingPriority >= 2
+                        ? BossStaggerSystem.PlayerHitType.Heavy
+                        : BossStaggerSystem.PlayerHitType.Normal;
+                }
+            }
+        }
+
+        return BossStaggerSystem.PlayerHitType.Normal;
     }
 
     void TrackRecentDamage(GameObject attacker, float amount)
@@ -732,10 +742,10 @@ public class BOSSAI : MonoBehaviour, IDamageable
         if (attacker == null)
             return false;
 
-        if (attacker.GetComponentInParent<PlayerController>() != null)
+        if (attacker.GetComponentInParent<PlayerCombatController>() != null)
             return true;
 
-        if (attacker.GetComponentInChildren<PlayerController>(true) != null)
+        if (attacker.GetComponentInChildren<PlayerCombatController>(true) != null)
             return true;
 
         if (attacker.GetComponentInParent<PlayerStatsRuntime>() != null)
@@ -810,9 +820,13 @@ public class BOSSAI : MonoBehaviour, IDamageable
         if (guard != null)
             return guard.isDead;
 
-        PlayerController playerController = target.GetComponentInParent<PlayerController>();
-        if (playerController != null)
-            return playerController.IsDead();
+        PlayerCombatController combatController = target.GetComponentInParent<PlayerCombatController>();
+        if (combatController != null && combatController.enabled)
+            return combatController.IsDead;
+
+        PlayerStatsRuntime playerStats = target.GetComponentInParent<PlayerStatsRuntime>();
+        if (playerStats != null)
+            return playerStats.IsDeadState();
 
         return false;
     }
@@ -820,6 +834,14 @@ public class BOSSAI : MonoBehaviour, IDamageable
     public bool IsDead()
     {
         return currentState == BossState.Dead || currentHP <= 0f;
+    }
+
+    public int GetCombatPriority()
+    {
+        if (currentState == BossState.Attacking && currentAttack != null)
+            return Mathf.Max(1, currentAttack.priority);
+
+        return 1;
     }
 
     void SetWeaponTrailForAttack(BossAttackDefinition attack)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -47,6 +48,7 @@ public class GuardAI : MonoBehaviour
     [Header("Attack")]
     public float attackRange = 2.2f;
     public float attackCooldown = 1.0f;
+    public float healCooldown = 20.0f;
     public float attackHitTolerance = 0.5f;
     public float damage = 10f;
    
@@ -499,11 +501,14 @@ public class GuardAI : MonoBehaviour
 
     bool IsPlayerDead(PlayerStatsRuntime targetStats)
     {
-        PlayerController controller = targetStats.GetComponent<PlayerController>();
-        if (controller != null)
-            return controller.IsDead();
+        if (targetStats == null)
+            return true;
 
-        return targetStats.hp <= 0f;
+        PlayerCombatController combatController = targetStats.GetComponent<PlayerCombatController>();
+        if (combatController != null && combatController.enabled)
+            return combatController.IsDead;
+
+        return targetStats.IsDeadState();
     }
 
     GuardActionData SelectReadyOffensiveAction(float distanceToTarget)
@@ -609,7 +614,7 @@ public class GuardAI : MonoBehaviour
                     actionName = "Heal",
                     actionType = GuardActionType.Heal,
                     value = 0f,
-                    cooldownTime = attackCooldown,
+                    cooldownTime = healCooldown,
                     preferredRange = 0f,
                     actualRange = 0f,
                     animatorChooseValue = 1

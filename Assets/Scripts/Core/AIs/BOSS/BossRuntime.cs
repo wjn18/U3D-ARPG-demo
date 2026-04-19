@@ -21,24 +21,43 @@ public class BossRuntime : MonoBehaviour
     public BossAttackPhase currentAttackPhase = BossAttackPhase.None;
     public Transform currentTarget;
 
-    public void Initialize(BossConfig sourceConfig, Transform target, float initialHP, float initialRV, float fallbackMaxHP = 0f, float fallbackMaxRV = 0f)
+    public void Initialize(BossConfig sourceConfig, Transform target)
     {
         if (sourceConfig != null)
             config = sourceConfig;
 
         currentTarget = target;
 
-        maxHP = config != null ? Mathf.Max(1f, config.maxHP) : Mathf.Max(1f, fallbackMaxHP > 0f ? fallbackMaxHP : maxHP);
-        maxRV = config != null ? Mathf.Max(1f, config.maxRV) : Mathf.Max(1f, fallbackMaxRV > 0f ? fallbackMaxRV : maxRV);
+        float configuredMaxHP = config != null ? config.maxHP : 0f;
+        float configuredMaxRV = config != null ? config.maxRV : 0f;
 
-        currentHP = Mathf.Clamp(initialHP > 0f ? initialHP : maxHP, 0f, maxHP);
-        currentRV = Mathf.Clamp(initialRV >= 0f ? initialRV : maxRV, 0f, maxRV);
+        maxHP = Mathf.Max(1f, maxHP > 0f ? maxHP : configuredMaxHP);
+        maxRV = Mathf.Max(1f, maxRV > 0f ? maxRV : configuredMaxRV);
+
+        currentHP = Mathf.Clamp(currentHP > 0f ? currentHP : maxHP, 0f, maxHP);
+        currentRV = Mathf.Clamp(currentRV > 0f ? currentRV : maxRV, 0f, maxRV);
 
         isDead = currentHP <= 0f;
         currentState = isDead ? BOSSAI.BossState.Dead : BOSSAI.BossState.Idle;
         currentAttackIndex = -1;
         currentAttackPhase = BossAttackPhase.None;
         isKneeling = false;
+    }
+
+    void OnValidate()
+    {
+        maxHP = Mathf.Max(0f, maxHP);
+        maxRV = Mathf.Max(0f, maxRV);
+
+        if (maxHP > 0f)
+            currentHP = Mathf.Clamp(currentHP, 0f, maxHP);
+        else
+            currentHP = Mathf.Max(0f, currentHP);
+
+        if (maxRV > 0f)
+            currentRV = Mathf.Clamp(currentRV, 0f, maxRV);
+        else
+            currentRV = Mathf.Max(0f, currentRV);
     }
 
     public void SetState(BOSSAI.BossState state)

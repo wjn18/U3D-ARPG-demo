@@ -2,23 +2,23 @@ using UnityEngine;
 
 public class AttackStateNotifier : StateMachineBehaviour
 {
-    private PlayerAttackCancelController attackCancel;
+    private PlayerCombatController combatController;
 
     public override void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        if (attackCancel == null)
-            attackCancel = animator.GetComponentInParent<PlayerAttackCancelController>();
+        if (combatController == null)
+            combatController = animator.GetComponentInParent<PlayerCombatController>();
 
-        if (attackCancel != null)
-            attackCancel.NotifyAttackStarted();
+        if (combatController != null)
+            combatController.NotifyAttackStarted();
     }
 
     public override void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        if (attackCancel == null)
-            attackCancel = animator.GetComponentInParent<PlayerAttackCancelController>();
+        if (combatController == null)
+            combatController = animator.GetComponentInParent<PlayerCombatController>();
 
-        if (attackCancel != null)
-            attackCancel.NotifyAttackEnded();
+        if (combatController != null)
+            combatController.NotifyAttackEnded();
     }
 }

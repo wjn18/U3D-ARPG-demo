@@ -643,13 +643,6 @@ ModelImporter:
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.6844885
-        functionName: AE_CloseChainWindow
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
       - time: 0.33982468
         functionName: AE_BeginAttackWindow
         data: 
@@ -657,8 +650,36 @@ ModelImporter:
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
+      - time: 0.36457476
+        functionName: AE_ActionVfxOn
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
       - time: 0.54625124
         functionName: AE_EndAttackWindow
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      - time: 0.6373909
+        functionName: AE_ActionVfxOff
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      - time: 0.6844885
+        functionName: AE_CloseChainWindow
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      - time: 0.28531858
+        functionName: AE_PlayAttackSFX
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0

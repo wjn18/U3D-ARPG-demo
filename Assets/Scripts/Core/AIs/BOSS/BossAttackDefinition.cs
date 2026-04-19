@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public enum BossAttackCategory
 {
@@ -34,7 +35,22 @@ public class BossAttackDefinition
     public float minRange = 0f;
     public float maxRange = 3f;
     public float preferredDistance = 0f;
-    public int priority = 0;
+    [FormerlySerializedAs("priority"), SerializeField, InspectorName("Attack Priority")]
+    private int attackSelectionPriority = 0;
+    [SerializeField, InspectorName("Priority")]
+    private int hitReactionPriority = 1;
+
+    public int attackPriority
+    {
+        get => attackSelectionPriority;
+        set => attackSelectionPriority = value;
+    }
+
+    public int priority
+    {
+        get => hitReactionPriority;
+        set => hitReactionPriority = value;
+    }
 
     [Header("Animation")]
     public string animationTrigger = "AttackTrigger";

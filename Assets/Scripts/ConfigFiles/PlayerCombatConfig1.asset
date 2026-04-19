@@ -1,0 +1,276 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: PlayerCombatConfig1
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCombatConfig
+  lightAttacks:
+  - attackName: Light1
+    animatorStateName: LightAttack
+    animation: {fileID: 7400000, guid: 92ec2741f7c7c3c478b414f7216e8c50, type: 3}
+    damage: 15
+    spCost: 5
+    apGainPerHit: 1
+    maxMoveDistance: 1.3
+    hitRadius: 1
+    priority: 0
+    transitionDuration: 0.05
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 0}
+    attackHit: {fileID: 8300000, guid: fa97024ce74b1d144ba31a6e54c3713c, type: 3}
+    attackVFX: {fileID: 1494690074406284, guid: 16591bfbcb30bbe44babd3d528d6c69e, type: 3}
+    vfxSocketId: VFXPoint1
+  - attackName: Light2
+    animatorStateName: combo_01_1_inplace
+    animation: {fileID: 7400000, guid: f1f9fcec3402d0f41a791e512cedb968, type: 3}
+    damage: 15
+    spCost: 5
+    apGainPerHit: 1
+    maxMoveDistance: 0.7
+    hitRadius: 1
+    priority: 0
+    transitionDuration: 0.05
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 0}
+    attackHit: {fileID: 8300000, guid: fa97024ce74b1d144ba31a6e54c3713c, type: 3}
+    attackVFX: {fileID: 1494690074406284, guid: 16591bfbcb30bbe44babd3d528d6c69e, type: 3}
+    vfxSocketId: VFXPoint1
+  - attackName: Light3
+    animatorStateName: combo_01_2_inplace
+    animation: {fileID: 7400000, guid: 3295d0e215cb4ab47b338e98f8020b83, type: 3}
+    damage: 15
+    spCost: 5
+    apGainPerHit: 1
+    maxMoveDistance: 0.7
+    hitRadius: 1
+    priority: 0
+    transitionDuration: 0.05
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 0}
+    attackHit: {fileID: 8300000, guid: fa97024ce74b1d144ba31a6e54c3713c, type: 3}
+    attackVFX: {fileID: 1494690074406284, guid: 16591bfbcb30bbe44babd3d528d6c69e, type: 3}
+    vfxSocketId: VFXPoint2
+  - attackName: Light4
+    animatorStateName: combo_01_3_inplace
+    animation: {fileID: 7400000, guid: 38757fce70a4da0439121746396c40d5, type: 3}
+    damage: 15
+    spCost: 5
+    apGainPerHit: 1
+    maxMoveDistance: 0.7
+    hitRadius: 1
+    priority: 0
+    transitionDuration: 0.05
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 0}
+    attackHit: {fileID: 8300000, guid: fa97024ce74b1d144ba31a6e54c3713c, type: 3}
+    attackVFX: {fileID: 1494690074406284, guid: 16591bfbcb30bbe44babd3d528d6c69e, type: 3}
+    vfxSocketId: VFXPoint1
+  - attackName: ComboXYXY-X2
+    animatorStateName: combo_04_2_inplace
+    animation: {fileID: 7400000, guid: 04d46471a18be334392afb37722232f0, type: 3}
+    damage: 20
+    spCost: 5
+    apGainPerHit: 1
+    maxMoveDistance: 1
+    hitRadius: 1
+    priority: 0
+    transitionDuration: 0.05
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 0}
+    attackHit: {fileID: 8300000, guid: fa97024ce74b1d144ba31a6e54c3713c, type: 3}
+    attackVFX: {fileID: 1494690074406284, guid: 16591bfbcb30bbe44babd3d528d6c69e, type: 3}
+    vfxSocketId: VFXPoint1
+  heavyAttacks:
+  - attackName: HeavyAttack1
+    animatorStateName: HeavyAttack
+    animation: {fileID: 7400000, guid: 4bac7e5f697132f42ba6c0239a5c1b92, type: 3}
+    damage: 35
+    spCost: 12
+    apGainPerHit: 2
+    maxMoveDistance: 2
+    hitRadius: 1.5
+    priority: 2
+    transitionDuration: 0.08
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 8300000, guid: 4023fed584af46149aed31d6f523d0a0, type: 3}
+    attackHit: {fileID: 8300000, guid: a94420db433f561488762874e7b51118, type: 3}
+    attackVFX: {fileID: 1295943409540678, guid: 247af972f5cb77a4bb949321f22ddd70, type: 3}
+    vfxSocketId: VFXPoint3
+  - attackName: HeavyAttack1
+    animatorStateName: stinger_01_inplace
+    animation: {fileID: 7400000, guid: 4bac7e5f697132f42ba6c0239a5c1b92, type: 3}
+    damage: 35
+    spCost: 12
+    apGainPerHit: 2
+    maxMoveDistance: 2
+    hitRadius: 1.5
+    priority: 2
+    transitionDuration: 0.08
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 8300000, guid: 4023fed584af46149aed31d6f523d0a0, type: 3}
+    attackHit: {fileID: 8300000, guid: a94420db433f561488762874e7b51118, type: 3}
+    attackVFX: {fileID: 1295943409540678, guid: 247af972f5cb77a4bb949321f22ddd70, type: 3}
+    vfxSocketId: VFXPoint3
+  - attackName: HeavyAttack1
+    animatorStateName: stinger_01_inplace 0
+    animation: {fileID: 7400000, guid: 4bac7e5f697132f42ba6c0239a5c1b92, type: 3}
+    damage: 35
+    spCost: 12
+    apGainPerHit: 2
+    maxMoveDistance: 2
+    hitRadius: 1.5
+    priority: 2
+    transitionDuration: 0.08
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 8300000, guid: 4023fed584af46149aed31d6f523d0a0, type: 3}
+    attackHit: {fileID: 8300000, guid: a94420db433f561488762874e7b51118, type: 3}
+    attackVFX: {fileID: 1295943409540678, guid: 247af972f5cb77a4bb949321f22ddd70, type: 3}
+    vfxSocketId: VFXPoint3
+  - attackName: HeavyAttack1
+    animatorStateName: stinger_01_inplace 1
+    animation: {fileID: 7400000, guid: 4bac7e5f697132f42ba6c0239a5c1b92, type: 3}
+    damage: 35
+    spCost: 12
+    apGainPerHit: 2
+    maxMoveDistance: 2
+    hitRadius: 1.5
+    priority: 2
+    transitionDuration: 0.08
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 8300000, guid: 4023fed584af46149aed31d6f523d0a0, type: 3}
+    attackHit: {fileID: 8300000, guid: a94420db433f561488762874e7b51118, type: 3}
+    attackVFX: {fileID: 1295943409540678, guid: 247af972f5cb77a4bb949321f22ddd70, type: 3}
+    vfxSocketId: VFXPoint3
+  - attackName: HeavyAttack2
+    animatorStateName: stinger_03_1_inplace
+    animation: {fileID: 7400000, guid: 301a2c969bc96ac4d8c7bee02ef94bb0, type: 3}
+    damage: 45
+    spCost: 15
+    apGainPerHit: 4
+    maxMoveDistance: 2
+    hitRadius: 1.8
+    priority: 2
+    transitionDuration: 0.08
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 8300000, guid: 4023fed584af46149aed31d6f523d0a0, type: 3}
+    attackHit: {fileID: 8300000, guid: a94420db433f561488762874e7b51118, type: 3}
+    attackVFX: {fileID: 1295943409540678, guid: 247af972f5cb77a4bb949321f22ddd70, type: 3}
+    vfxSocketId: VFXPoint3
+  - attackName: ComXYXY-Y2
+    animatorStateName: combo_04_3_inplace
+    animation: {fileID: 7400000, guid: 47978acf3484d004c9590531b1b6b1b3, type: 3}
+    damage: 60
+    spCost: 15
+    apGainPerHit: 4
+    maxMoveDistance: 2
+    hitRadius: 1.8
+    priority: 3
+    transitionDuration: 0.08
+    attackVoice: {fileID: 8300000, guid: 934a0d4a64e914e4897132be6df1a04d, type: 3}
+    attackSwing: {fileID: 8300000, guid: 4023fed584af46149aed31d6f523d0a0, type: 3}
+    attackHit: {fileID: 8300000, guid: a94420db433f561488762874e7b51118, type: 3}
+    attackVFX: {fileID: 1295943409540678, guid: 247af972f5cb77a4bb949321f22ddd70, type: 3}
+    vfxSocketId: VFXPoint3
+  sprintAttack:
+    attackName: 
+    animatorStateName: 
+    animation: {fileID: 0}
+    damage: 10
+    spCost: 10
+    apGainPerHit: 1
+    maxMoveDistance: 2
+    hitRadius: 2
+    priority: 1
+    transitionDuration: 0.05
+    attackVoice: {fileID: 0}
+    attackSwing: {fileID: 0}
+    attackHit: {fileID: 0}
+    attackVFX: {fileID: 0}
+    vfxSocketId: 
+  chargedAttack:
+    attack:
+      attackName: ChargedAttack
+      animatorStateName: ChargedAttack
+      animation: {fileID: 7400000, guid: e28c05bf34343fc4b9c4d624651c1639, type: 3}
+      damage: 70
+      spCost: 22
+      apGainPerHit: 5
+      maxMoveDistance: 1.6
+      hitRadius: 2
+      priority: 1
+      transitionDuration: 0.05
+      attackVoice: {fileID: 8300000, guid: 30a92e21515219f4988bbb9a0856131f, type: 3}
+      attackSwing: {fileID: 8300000, guid: 303629d5ccd6afd4581b908672561506, type: 3}
+      attackHit: {fileID: 8300000, guid: 13feac310af82d94bab7012d33695f69, type: 3}
+      attackVFX: {fileID: 1464602466083886, guid: 38c9a9f027e98964bbd6c2e31f4edf2f, type: 3}
+      vfxSocketId: VFXPoint4
+    holdTime: 0.5
+    hitboxSocketId: ChargedHitBox
+  avoidDirections:
+  - direction: 0
+    animatorStateName: front
+    animation: {fileID: 7400000, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
+    moveDistance: 8
+    transitionDuration: 0.2
+    vfx: {fileID: 0}
+    vfxSocketId: 
+    dodgeSound: {fileID: 0}
+  - direction: 1
+    animatorStateName: back
+    animation: {fileID: 7400006, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
+    moveDistance: 8
+    transitionDuration: 0.2
+    vfx: {fileID: 0}
+    vfxSocketId: 
+    dodgeSound: {fileID: 0}
+  - direction: 2
+    animatorStateName: left
+    animation: {fileID: 7400002, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
+    moveDistance: 8
+    transitionDuration: 0.2
+    vfx: {fileID: 0}
+    vfxSocketId: 
+    dodgeSound: {fileID: 0}
+  - direction: 3
+    animatorStateName: right
+    animation: {fileID: 7400004, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
+    moveDistance: 8
+    transitionDuration: 0.2
+    vfx: {fileID: 0}
+    vfxSocketId: 
+    dodgeSound: {fileID: 0}
+  locomotionConfigs:
+  - locomotionKind: 0
+    animatorStateName: walk_front
+    animation: {fileID: 7400022, guid: 7e0c8dc0106d815408faaaef8aa60657, type: 3}
+    loopingVFX: {fileID: 0}
+    vfxSocketId: 
+    movementSound: {fileID: 0}
+  - locomotionKind: 0
+    animatorStateName: run_front
+    animation: {fileID: 7400030, guid: 7e0c8dc0106d815408faaaef8aa60657, type: 3}
+    loopingVFX: {fileID: 0}
+    vfxSocketId: 
+    movementSound: {fileID: 0}
+  smallHits:
+  - hitName: hitl1
+    animatorStateName: hit_light_F_body
+    animation: {fileID: 7400002, guid: de75fe55093de29419d1746b1ea69ece, type: 3}
+    moveDistance: 1
+    transitionDuration: 0.05
+  bigHits:
+  - hitName: knockdown1
+    animatorStateName: knockdonw_down
+    animation: {fileID: 7400028, guid: fc35959a9ecb4ae4691fd6b726ecbd0f, type: 3}
+    moveDistance: 3
+    transitionDuration: 0.2
+  locomotionPriority: 1
+  avoidPriority: 2

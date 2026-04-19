@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 public class BossStaggerSystem : MonoBehaviour
 {
@@ -28,13 +27,13 @@ public class BossStaggerSystem : MonoBehaviour
 
     [Header("Animator Params")]
     public string hitTriggerParam = "HitTrigger";
+    public string hitSmallTriggerParam = "HitSmallTrigger";
+    public string hitBigTriggerParam = "HitBigTrigger";
     public string kneelTriggerParam = "KneelTrigger";
     public string locomotionStateName = "Locomotion";
     public float hitReactionInterruptBlendDuration = 0.05f;
 
     [Header("RV")]
-    [FormerlySerializedAs("maxRV"), SerializeField, HideInInspector] private float legacyMaxRV = 200f;
-    [FormerlySerializedAs("currentRV"), SerializeField, HideInInspector] private float legacyCurrentRV = 200f;
     [Range(0f, 1f)]
     public float alwaysOpenThresholdPercent = 0.3f;
 
@@ -58,25 +57,21 @@ public class BossStaggerSystem : MonoBehaviour
 
     public float maxRV
     {
-        get => bossRuntime != null ? bossRuntime.maxRV : legacyMaxRV;
+        get => bossRuntime != null ? bossRuntime.maxRV : 0f;
         private set
         {
             if (bossRuntime != null)
                 bossRuntime.maxRV = value;
-            else
-                legacyMaxRV = value;
         }
     }
 
     public float currentRV
     {
-        get => bossRuntime != null ? bossRuntime.currentRV : legacyCurrentRV;
+        get => bossRuntime != null ? bossRuntime.currentRV : 0f;
         private set
         {
             if (bossRuntime != null)
                 bossRuntime.SetRV(value);
-            else
-                legacyCurrentRV = Mathf.Clamp(value, 0f, legacyMaxRV);
         }
     }
 
@@ -114,7 +109,7 @@ public class BossStaggerSystem : MonoBehaviour
 
         ApplyConfig();
 
-        currentRV = Mathf.Clamp(legacyCurrentRV, 0f, maxRV);
+        currentRV = Mathf.Clamp(currentRV > 0f ? currentRV : maxRV, 0f, maxRV);
         staggerWindowOpen = true;
         staggerCycleTimer = 0f;
     }
@@ -133,7 +128,6 @@ public class BossStaggerSystem : MonoBehaviour
         if (config == null)
             return;
 
-        maxRV = Mathf.Max(1f, config.maxRV);
         alwaysOpenThresholdPercent = config.alwaysOpenThresholdPercent;
         recoverDelay = config.recoverDelay;
         recoverPerSecond = config.recoverPerSecond;
@@ -265,10 +259,15 @@ public class BossStaggerSystem : MonoBehaviour
 
     public void TakeStaggerDamage(float amount)
     {
-        TakeStaggerDamage(amount, PlayerHitType.Normal);
+        TakeStaggerDamage(amount, PlayerHitType.Normal, null);
     }
 
     public void TakeStaggerDamage(float amount, PlayerHitType hitType)
+    {
+        TakeStaggerDamage(amount, hitType, null);
+    }
+
+    public void TakeStaggerDamage(float amount, PlayerHitType hitType, GameObject attacker)
     {
         if (bossAI == null || animatorController == null || animatorController.Animator == null)
             return;
@@ -291,37 +290,39 @@ public class BossStaggerSystem : MonoBehaviour
             return;
         }
 
-        if (!CanPlayHitReaction(hitType))
+        string hitReactionTrigger = ResolveHitReactionTrigger(hitType, attacker);
+        if (string.IsNullOrWhiteSpace(hitReactionTrigger))
         {
             ClearPendingHitReaction();
             return;
         }
 
-        if (ShouldInterruptAttackForHitReaction(hitType))
+        if (ShouldInterruptAttackForHitReaction(hitType, attacker))
             InterruptAttackForHitReaction();
 
         ClearPendingHitReaction();
-        animatorController.Animator.SetTrigger(hitTriggerParam);
+        animatorController.Animator.SetTrigger(hitReactionTrigger);
     }
 
-    bool CanPlayHitReaction(PlayerHitType hitType)
+    string ResolveHitReactionTrigger(PlayerHitType hitType, GameObject attacker)
     {
         if (bossAI == null || animatorController == null)
-            return false;
+            return null;
 
         if (ShouldIgnoreHitReactionCompletely())
-            return false;
+            return null;
 
         if (currentRV <= 30f)
-            return true;
+            return hitTriggerParam;
 
-        if (hitType == PlayerHitType.Heavy)
-            return true;
+        if (!IsInAttackState())
+            return hitTriggerParam;
 
-        if (IsInAttackState())
-            return false;
+        int delta = ResolveIncomingPriority(attacker, hitType) - GetCurrentCombatPriority();
+        if (delta <= 0)
+            return null;
 
-        return true;
+        return delta >= 2 ? hitBigTriggerParam : hitSmallTriggerParam;
     }
 
     void EnterKneel()
@@ -436,6 +437,8 @@ public class BossStaggerSystem : MonoBehaviour
             return;
 
         animatorController.Animator.ResetTrigger(hitTriggerParam);
+        animatorController.Animator.ResetTrigger(hitSmallTriggerParam);
+        animatorController.Animator.ResetTrigger(hitBigTriggerParam);
     }
 
     bool ShouldIgnoreHitReactionCompletely()
@@ -469,7 +472,7 @@ public class BossStaggerSystem : MonoBehaviour
         return animatorController.IsBusyWithAttackMotion || animatorController.IsInAttackState();
     }
 
-    bool ShouldInterruptAttackForHitReaction(PlayerHitType hitType)
+    bool ShouldInterruptAttackForHitReaction(PlayerHitType hitType, GameObject attacker)
     {
         if (!IsInAttackState())
             return false;
@@ -477,7 +480,8 @@ public class BossStaggerSystem : MonoBehaviour
         if (currentRV <= 30f)
             return true;
 
-        return hitType == PlayerHitType.Heavy;
+        int delta = ResolveIncomingPriority(attacker, hitType) - GetCurrentCombatPriority();
+        return delta > 0;
     }
 
     void InterruptAttackForHitReaction()
@@ -489,6 +493,37 @@ public class BossStaggerSystem : MonoBehaviour
             return;
 
         animatorController.Animator.CrossFade(locomotionStateName, Mathf.Max(0f, hitReactionInterruptBlendDuration), 0);
+    }
+
+    int GetCurrentCombatPriority()
+    {
+        if (bossAI != null)
+            return bossAI.GetCombatPriority();
+
+        return 1;
+    }
+
+    int ResolveIncomingPriority(GameObject attacker, PlayerHitType hitType)
+    {
+        if (attacker != null)
+        {
+            MonoBehaviour[] components = attacker.GetComponentsInParent<MonoBehaviour>(true);
+            for (int i = 0; i < components.Length; i++)
+            {
+                if (components[i] is ICombatPrioritySource prioritySource)
+                    return Mathf.Max(1, prioritySource.GetCombatPriority());
+            }
+        }
+
+        switch (hitType)
+        {
+            case PlayerHitType.Heavy:
+                return 2;
+            case PlayerHitType.Sprint:
+                return 2;
+            default:
+                return 1;
+        }
     }
 
 

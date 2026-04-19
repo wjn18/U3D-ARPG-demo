@@ -13,7 +13,7 @@ public class PlayerStatsRuntime : MonoBehaviour, IDamageable
     public float fallbackBaseMaxHP = 100f;
     public float fallbackHpPerLevel = 10f;
 
-    public float fallbackBaseMaxSP = 100f;
+    public float fallbackBaseMaxSP = 200f;
     public float fallbackSpPerLevel = 5f;
 
     public int fallbackBaseExpToNext = 100;
@@ -27,6 +27,13 @@ public class PlayerStatsRuntime : MonoBehaviour, IDamageable
     public float spRecoveryDelay = 1f;
     public float spRecoveryAmountPerTick = 7f;
     public float spRecoveryTickInterval = 0.1f;
+
+    [Header("Sprint SP Drain")]
+    public float sprintSpDrainPerTick = 1f;
+    public float sprintSpDrainTickInterval = 0.1f;
+
+    [Header("Avoid")]
+    public float avoidSpCost = 15f;
 
     [Header("Kill Rewards")]
     public float killHealPercentOfPlayerMaxHP = 0.01f;
@@ -59,6 +66,7 @@ public class PlayerStatsRuntime : MonoBehaviour, IDamageable
 
     float lastSPSpendTime = -999f;
     float spRecoveryTickTimer = 0f;
+    float sprintSpDrainTickTimer = 0f;
 
     void Start()
     {
@@ -147,19 +155,24 @@ public class PlayerStatsRuntime : MonoBehaviour, IDamageable
         if (attacker == null || !attacker.CompareTag("Enemy"))
             return;
 
-        ApplyDamage(amount);
+        ApplyDamage(amount, attacker);
     }
 
     public void ApplyDamage(float dmg)
+    {
+        ApplyDamage(dmg, null);
+    }
+
+    public void ApplyDamage(float dmg, GameObject attacker)
     {
         if (!isInitialized)
             Initialize();
 
         float finalDamage = Mathf.Max(0f, dmg);
 
-        PlayerController controller = GetComponent<PlayerController>();
-        if (controller != null)
-            controller.ProcessIncomingHit(ref finalDamage);
+        PlayerCombatController combatController = GetComponent<PlayerCombatController>();
+        if (combatController != null && combatController.enabled)
+            combatController.ProcessIncomingHit(ref finalDamage, attacker);
 
         hp = Mathf.Max(0f, hp - finalDamage);
         RaiseHP();
@@ -168,9 +181,17 @@ public class PlayerStatsRuntime : MonoBehaviour, IDamageable
         {
             Debug.Log("Player Dead");
 
-            if (controller != null)
-                controller.Die();
+            if (combatController != null && combatController.enabled)
+                combatController.HandleDeath();
         }
+    }
+
+    public bool IsDeadState()
+    {
+        if (!isInitialized)
+            Initialize();
+
+        return hp <= 0f;
     }
 
     public void Heal(float amount)
@@ -288,6 +309,36 @@ public class PlayerStatsRuntime : MonoBehaviour, IDamageable
                 break;
             }
         }
+    }
+
+    public bool UpdateSprintSPDrain(bool shouldDrain, float deltaTime)
+    {
+        if (!isInitialized)
+            Initialize();
+
+        if (!shouldDrain)
+        {
+            sprintSpDrainTickTimer = 0f;
+            return true;
+        }
+
+        if (maxSP <= 0f)
+            return false;
+
+        sprintSpDrainTickTimer += Mathf.Max(0f, deltaTime);
+
+        while (sprintSpDrainTickTimer >= sprintSpDrainTickInterval)
+        {
+            sprintSpDrainTickTimer -= sprintSpDrainTickInterval;
+
+            if (!SpendSP(sprintSpDrainPerTick))
+            {
+                sprintSpDrainTickTimer = 0f;
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public bool HasEnoughAP(float amount)
