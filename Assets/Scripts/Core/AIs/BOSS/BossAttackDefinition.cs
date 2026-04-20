@@ -21,8 +21,7 @@ public class BossMeleeWindowData
 {
     public int windowIndex;
     public float damage = 20f;
-    public float radius = 2f;
-    public float facingAngle = 80f;
+    public string[] hitboxIds;
 }
 
 [System.Serializable]
@@ -82,7 +81,7 @@ public class BossAttackDefinition
     public BossMeleeWindowData[] meleeWindows;
 
     [Header("Projectile")]
-    public float projectileSpeed = 12f;
+    public float projectileSpeed = 20f;
     public float projectileLifeTime = 5f;
 
     [Header("Interrupt")]
@@ -164,8 +163,6 @@ public class BossAttackDefinition
         if (meleeWindows == null || meleeWindows.Length == 0)
             return null;
 
-        BossMeleeWindowData fallback = null;
-
         for (int i = 0; i < meleeWindows.Length; i++)
         {
             BossMeleeWindowData window = meleeWindows[i];
@@ -174,12 +171,9 @@ public class BossAttackDefinition
 
             if (window.windowIndex == windowIndex)
                 return window;
-
-            if (window.windowIndex == 0 && fallback == null)
-                fallback = window;
         }
 
-        return fallback;
+        return null;
     }
 }
 

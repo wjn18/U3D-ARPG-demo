@@ -1249,62 +1249,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ownerAI: {fileID: 4051228099824029671}
-  hitOrigin: {fileID: 4464788227439911814}
   targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
-  meleeConfigs:
-  - attackIndex: 0
-    windowIndex: 0
-    hitOriginOverride: {fileID: 0}
-    damage: 20
-    radius: 1
-    facingAngle: 60
-  - attackIndex: 1
-    windowIndex: 0
-    hitOriginOverride: {fileID: 0}
-    damage: 15
-    radius: 1
-    facingAngle: 60
-  - attackIndex: 2
-    windowIndex: 0
-    hitOriginOverride: {fileID: 3542736620994329439}
-    damage: 15
-    radius: 3
-    facingAngle: 60
-  - attackIndex: 3
-    windowIndex: 0
-    hitOriginOverride: {fileID: 8327322867974059030}
-    damage: 10
-    radius: 2
-    facingAngle: 60
-  - attackIndex: 4
-    windowIndex: 0
-    hitOriginOverride: {fileID: 0}
-    damage: 25
-    radius: 3
-    facingAngle: 60
-  - attackIndex: 5
-    windowIndex: 0
-    hitOriginOverride: {fileID: 0}
-    damage: 20
-    radius: 3
-    facingAngle: 80
-  - attackIndex: 5
-    windowIndex: 1
-    hitOriginOverride: {fileID: 0}
-    damage: 20
-    radius: 3
-    facingAngle: 80
-  - attackIndex: 5
-    windowIndex: 1
-    hitOriginOverride: {fileID: 0}
-    damage: 25
-    radius: 2
-    facingAngle: 80
-  fallbackRadius: 1.2
-  fallbackDamage: 20
-  fallbackFacingAngle: 80
   drawGizmos: 1
   drawEvenWhenClosed: 1
 --- !u!114 &8164502709098574477

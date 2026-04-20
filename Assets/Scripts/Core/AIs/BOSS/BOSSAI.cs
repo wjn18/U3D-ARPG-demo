@@ -867,7 +867,7 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         return null;
     }
 
-    BossMeleeWindowData GetAttackWindowData(int attackIndex, int windowIndex)
+    public BossMeleeWindowData GetAttackWindowData(int attackIndex, int windowIndex)
     {
         BossAttackDefinition attack = GetAttackDefinition(attackIndex);
         return attack != null ? attack.GetMeleeWindow(windowIndex) : null;
@@ -884,24 +884,6 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
             return Mathf.Max(0f, attack.damage);
 
         return Mathf.Max(0f, fallback);
-    }
-
-    public float GetAttackRadius(int attackIndex, int windowIndex, float fallback)
-    {
-        BossMeleeWindowData windowData = GetAttackWindowData(attackIndex, windowIndex);
-        if (windowData != null)
-            return Mathf.Max(0f, windowData.radius);
-
-        return Mathf.Max(0f, fallback);
-    }
-
-    public float GetAttackFacingAngle(int attackIndex, int windowIndex, float fallback)
-    {
-        BossMeleeWindowData windowData = GetAttackWindowData(attackIndex, windowIndex);
-        if (windowData != null)
-            return Mathf.Clamp(windowData.facingAngle, 0f, 180f);
-
-        return Mathf.Clamp(fallback, 0f, 180f);
     }
 
     public float GetProjectileDamage(int attackIndex, float fallback)

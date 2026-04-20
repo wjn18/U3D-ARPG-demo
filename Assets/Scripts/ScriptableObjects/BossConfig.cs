@@ -70,7 +70,7 @@ public class BossConfig : ScriptableObject
                 actualAttackRange = 4.3f,
                 meleeWindows = new[]
                 {
-                    new BossMeleeWindowData { windowIndex = 0, damage = 20f, radius = 1f, facingAngle = 60f }
+                    new BossMeleeWindowData { windowIndex = 0, damage = 20f, hitboxIds = Array.Empty<string>() }
                 },
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
@@ -100,7 +100,7 @@ public class BossConfig : ScriptableObject
                 actualAttackRange = 4.3f,
                 meleeWindows = new[]
                 {
-                    new BossMeleeWindowData { windowIndex = 0, damage = 15f, radius = 1f, facingAngle = 60f }
+                    new BossMeleeWindowData { windowIndex = 0, damage = 15f, hitboxIds = Array.Empty<string>() }
                 },
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
@@ -130,7 +130,7 @@ public class BossConfig : ScriptableObject
                 actualAttackRange = 5.5f,
                 meleeWindows = new[]
                 {
-                    new BossMeleeWindowData { windowIndex = 0, damage = 15f, radius = 3f, facingAngle = 60f }
+                    new BossMeleeWindowData { windowIndex = 0, damage = 15f, hitboxIds = Array.Empty<string>() }
                 },
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
@@ -162,7 +162,7 @@ public class BossConfig : ScriptableObject
                 actualAttackRange = 4.3f,
                 meleeWindows = new[]
                 {
-                    new BossMeleeWindowData { windowIndex = 0, damage = 10f, radius = 2f, facingAngle = 60f }
+                    new BossMeleeWindowData { windowIndex = 0, damage = 10f, hitboxIds = Array.Empty<string>() }
                 },
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
@@ -194,7 +194,7 @@ public class BossConfig : ScriptableObject
                 actualAttackRange = 6.5f,
                 meleeWindows = new[]
                 {
-                    new BossMeleeWindowData { windowIndex = 0, damage = 25f, radius = 3f, facingAngle = 60f }
+                    new BossMeleeWindowData { windowIndex = 0, damage = 25f, hitboxIds = Array.Empty<string>() }
                 },
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
@@ -226,8 +226,8 @@ public class BossConfig : ScriptableObject
                 actualAttackRange = 6.5f,
                 meleeWindows = new[]
                 {
-                    new BossMeleeWindowData { windowIndex = 0, damage = 20f, radius = 3f, facingAngle = 80f },
-                    new BossMeleeWindowData { windowIndex = 1, damage = 20f, radius = 3f, facingAngle = 80f }
+                    new BossMeleeWindowData { windowIndex = 0, damage = 20f, hitboxIds = Array.Empty<string>() },
+                    new BossMeleeWindowData { windowIndex = 1, damage = 20f, hitboxIds = Array.Empty<string>() }
                 },
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
