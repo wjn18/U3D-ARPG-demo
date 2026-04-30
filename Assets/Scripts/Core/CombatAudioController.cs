@@ -92,6 +92,11 @@ public class CombatAudioController : MonoBehaviour
         PlayRandomClip(berserkVoiceClips);
     }
 
+    public void PlayOneShot(AudioClip[] clips)
+    {
+        PlayRandomClip(clips);
+    }
+
     void PlayRandomClip(AudioClip[] clips)
     {
         if (audioSource == null || clips == null || clips.Length == 0)

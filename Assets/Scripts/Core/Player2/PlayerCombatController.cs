@@ -34,6 +34,9 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     [Header("Avoid")]
     [SerializeField] private KeyCode avoidKey = KeyCode.Space;
 
+    [Header("Parry")]
+    [SerializeField] private KeyCode parryKey = KeyCode.F;
+
     [Header("Input")]
     [SerializeField] private KeyCode lightAttackKey = KeyCode.Mouse0;
     [SerializeField] private KeyCode heavyAttackKey = KeyCode.Mouse1;
@@ -49,6 +52,7 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     [SerializeField] private string rollDirectionParam = "RollDirection";
     [SerializeField] private string hitSmallTrigger = "HitSmallTrigger";
     [SerializeField] private string hitBigTrigger = "HitBigTrigger";
+    [SerializeField] private string parryTriggerParam = "ParryTrigger";
     [SerializeField] private string deadChooseParam = "DeadChoose";
 
     [Header("Buffer")]
@@ -72,6 +76,7 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     [SerializeField] private bool chainWindowOpen = false;
     [SerializeField] private bool avoidWindowOpen = false;
     [SerializeField] private bool attackWindowActive = false;
+    [SerializeField] private bool parryWindowActive = false;
     [SerializeField] private bool sprintMode = false;
 
     private bool isDead = false;
@@ -88,6 +93,7 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     private float lastExecutedSpecialEndTimestamp = float.NegativeInfinity;
 
     private CombatAttackData currentAttackData;
+    private CombatParryData currentParryData;
     private CombatAvoidData currentAvoidData;
     private CombatHitData currentHitData;
     private bool chargedAttackActive = false;
@@ -100,6 +106,7 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     private float actionMoveSpeed = 0f;
     private RollDirection currentAvoidDirection = RollDirection.Front;
     private readonly HashSet<IDamageable> hitTargetsThisAction = new HashSet<IDamageable>();
+    private readonly HashSet<BOSSAI> parriedBossesThisAction = new HashSet<BOSSAI>();
     private GameObject activeLocomotionVfxInstance;
     private GameObject activeActionVfxInstance;
     private CombatLocomotionKind? activeLocomotionKind = null;
@@ -111,6 +118,7 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     private bool attackStartFeedbackPlayed = false;
     private Vector3 pendingHitMoveDirection = Vector3.zero;
     private bool pendingHitMovement = false;
+    private float parryStateMinEndTime = 0f;
 
     public bool HasCombatConfigAsset => combatConfig != null;
     public PlayerCombatConfig CombatConfig => combatConfig;
@@ -188,6 +196,7 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
         inputBuffer.Prune(currentTime);
 
         HandleSprintToggleInput();
+        HandleParryInput();
         CaptureAttackInput(currentTime);
         HandleAvoidInput();
         TryExecuteBufferedInput();
@@ -197,6 +206,9 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
 
         if (attackWindowActive && currentAttackData != null)
             ProcessCurrentAttackHitbox();
+
+        if (parryWindowActive)
+            ProcessCurrentParryHitbox();
 
         UpdateSprintSPDrain(moveInput);
         UpdateAnimatorParams(moveInput);
@@ -210,6 +222,9 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
 
         if (newState != CombatExecutionState.Attack)
             chainWindowOpen = false;
+
+        if (newState != CombatExecutionState.Parry)
+            parryWindowActive = false;
 
         if (newState == CombatExecutionState.Locomotion || newState == CombatExecutionState.LockOnLocomotion)
             executionLocked = false;
@@ -240,7 +255,6 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     public void AE_StateRoll() => SetCombatState(CombatExecutionState.Roll);
     public void AE_StateKnockback() => SetCombatState(CombatExecutionState.Knockback);
     public void AE_StateDead() => SetCombatState(CombatExecutionState.Dead);
-
     PlayerHitVFXController FindHitVfxController()
     {
         return GetComponentInChildren<PlayerHitVFXController>(true);
@@ -256,6 +270,21 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     public void AE_EndAttackWindow()
     {
         attackWindowActive = false;
+    }
+
+    public void AE_BeginParryWindow()
+    {
+        if (currentState != CombatExecutionState.Parry)
+            return;
+
+        parryWindowActive = true;
+        parriedBossesThisAction.Clear();
+        StopActionMovement();
+    }
+
+    public void AE_EndParryWindow()
+    {
+        parryWindowActive = false;
     }
 
     public void AE_AvoidWindowOn()
@@ -388,6 +417,9 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     {
         if (currentState == CombatExecutionState.Attack && currentAttackData != null)
             return Mathf.Max(1, currentAttackData.priority);
+
+        if (currentState == CombatExecutionState.Parry && currentParryData != null)
+            return Mathf.Max(1, currentParryData.priority);
 
         if (currentState == CombatExecutionState.Roll && combatConfig != null)
             return Mathf.Max(1, combatConfig.avoidPriority);
@@ -850,12 +882,57 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
         return true;
     }
 
+    bool TryStartParry()
+    {
+        if (!CanStartParry())
+            return false;
+
+        CombatParryData parryData = combatConfig != null ? combatConfig.parry : null;
+        if (parryData == null || string.IsNullOrWhiteSpace(parryData.animatorStateName))
+        {
+            Debug.LogWarning("[PlayerCombatController] Parry config is missing or has no animator state.", this);
+            return false;
+        }
+
+        if (!HasTriggerParameter(parryTriggerParam))
+        {
+            Debug.LogWarning($"[PlayerCombatController] Animator trigger '{parryTriggerParam}' is missing.", this);
+            return false;
+        }
+
+        if (!TrySpendSP(parryData.spCost))
+            return false;
+
+        ResetActionRuntime();
+        currentParryData = parryData;
+        currentState = CombatExecutionState.Parry;
+        executionLocked = true;
+        sprintMode = false;
+        parryWindowActive = false;
+        parryStateMinEndTime = Time.time + Mathf.Max(0.05f, parryData.transitionDuration);
+        parriedBossesThisAction.Clear();
+
+        FaceLockTarget();
+        PlayOneShot(parryData.releaseVoice);
+        StopLocomotionFeedback();
+        TrySetTrigger(parryTriggerParam);
+        return true;
+    }
+
     void HandleAvoidInput()
     {
         if (!Input.GetKeyDown(avoidKey))
             return;
 
         TryStartAvoid();
+    }
+
+    void HandleParryInput()
+    {
+        if (!Input.GetKeyDown(parryKey))
+            return;
+
+        TryStartParry();
     }
 
     void HandleSprintToggleInput()
@@ -884,6 +961,11 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
             return true;
 
         return currentState == CombatExecutionState.Attack && chainWindowOpen;
+    }
+
+    bool CanStartParry()
+    {
+        return currentState == CombatExecutionState.Locomotion || currentState == CombatExecutionState.LockOnLocomotion;
     }
 
     bool CanExecuteNow()
@@ -1083,8 +1165,10 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
     void ResetActionRuntime()
     {
         attackWindowActive = false;
+        parryWindowActive = false;
         avoidWindowOpen = false;
         currentAttackData = null;
+        currentParryData = null;
         currentAvoidData = null;
         currentHitData = null;
         chargedAttackActive = false;
@@ -1095,7 +1179,9 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
         attackStartFeedbackPlayed = false;
         pendingHitMoveDirection = Vector3.zero;
         pendingHitMovement = false;
+        parryStateMinEndTime = 0f;
         hitTargetsThisAction.Clear();
+        parriedBossesThisAction.Clear();
         StopActionMovement();
         StopActionVfx();
     }
@@ -1228,6 +1314,52 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
         ApplyHits(hits, currentAttackData);
     }
 
+    void ProcessCurrentParryHitbox()
+    {
+        if (attackPoint == null || currentParryData == null)
+            return;
+
+        Collider[] hits = Physics.OverlapSphere(
+            attackPoint.position,
+            Mathf.Max(0f, currentParryData.hitRadius),
+            targetLayers,
+            QueryTriggerInteraction.Ignore
+        );
+
+        ApplyParryHits(hits);
+    }
+
+    void ApplyParryHits(Collider[] hits)
+    {
+        if (hits == null)
+            return;
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider col = hits[i];
+            if (col == null || IsOwnCollider(col))
+                continue;
+
+            BOSSAI bossAI = col.GetComponentInParent<BOSSAI>();
+            if (bossAI == null)
+                continue;
+
+            if (parriedBossesThisAction.Contains(bossAI))
+                continue;
+
+            if (bossAI.ReceiveParry(gameObject))
+            {
+                parriedBossesThisAction.Add(bossAI);
+
+                if (stats != null && currentParryData.apGainOnSuccess > 0f)
+                    stats.GainAP(currentParryData.apGainOnSuccess);
+
+                PlayOneShot(currentParryData.hitSound);
+                StartActionVfx(currentParryData.hitVFX, currentParryData.vfxSocketId);
+            }
+        }
+    }
+
     void ApplyHits(Collider[] hits, CombatAttackData attackData)
     {
         if (hits == null || attackData == null)
@@ -1293,6 +1425,11 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
         }
 
         if (currentState == CombatExecutionState.Roll && !IsInTaggedAnimation("Roll"))
+        {
+            ForceReturnToLocomotion();
+        }
+
+        if (currentState == CombatExecutionState.Parry && Time.time >= parryStateMinEndTime && !IsInParryAnimation())
         {
             ForceReturnToLocomotion();
         }
@@ -1601,6 +1738,14 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
         }
 
         return current.IsTag(tagName);
+    }
+
+    bool IsInParryAnimation()
+    {
+        AnimationClip activeClip = GetActiveAnimatorClip();
+        return IsInTaggedAnimation("Parry")
+            || (currentParryData != null && IsAnimatorStateMatch(currentParryData.animatorStateName))
+            || (currentParryData != null && currentParryData.animation != null && activeClip == currentParryData.animation);
     }
 
     bool IsAnimatorStateMatch(string stateName)

@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: fb25ddae009d31c4a921adb58d1221dc, type: 3}
   m_Name: PlayerCombatConfig1
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombatConfig
   lightAttacks:
@@ -214,36 +214,49 @@ MonoBehaviour:
       vfxSocketId: VFXPoint4
     holdTime: 0.5
     hitboxSocketId: ChargedHitBox
+  parry:
+    parryName: Parry
+    animatorStateName: parry front
+    animation: {fileID: 7400002, guid: b45dc90bd338ecc42abf8ea143c6b830, type: 3}
+    spCost: 10
+    apGainOnSuccess: 10
+    hitRadius: 1
+    priority: 2
+    transitionDuration: 0.05
+    releaseVoice: {fileID: 0}
+    hitSound: {fileID: 0}
+    hitVFX: {fileID: 0}
+    vfxSocketId: 
   avoidDirections:
   - direction: 0
     animatorStateName: front
     animation: {fileID: 7400000, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
-    moveDistance: 8
-    transitionDuration: 0.2
+    moveDistance: 12
+    transitionDuration: 0.05
     vfx: {fileID: 0}
     vfxSocketId: 
     dodgeSound: {fileID: 0}
   - direction: 1
     animatorStateName: back
     animation: {fileID: 7400006, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
-    moveDistance: 8
-    transitionDuration: 0.2
+    moveDistance: 12
+    transitionDuration: 0.05
     vfx: {fileID: 0}
     vfxSocketId: 
     dodgeSound: {fileID: 0}
   - direction: 2
     animatorStateName: left
     animation: {fileID: 7400002, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
-    moveDistance: 8
-    transitionDuration: 0.2
+    moveDistance: 12
+    transitionDuration: 0.05
     vfx: {fileID: 0}
     vfxSocketId: 
     dodgeSound: {fileID: 0}
   - direction: 3
     animatorStateName: right
     animation: {fileID: 7400004, guid: 1bd03f0ac0691e74d91a829cf8f6477b, type: 3}
-    moveDistance: 8
-    transitionDuration: 0.2
+    moveDistance: 12
+    transitionDuration: 0.05
     vfx: {fileID: 0}
     vfxSocketId: 
     dodgeSound: {fileID: 0}

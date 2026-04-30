@@ -71,6 +71,20 @@ ModelImporter:
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
+      - time: 0.22953288
+        functionName: AnimEvent_PlayAttackSFX
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      - time: 0.2583376
+        functionName: AnimEvent_ShowWarningArea
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
       - time: 0.29173177
         functionName: AnimEvent_CloseMeleeWindow
         data: 
@@ -85,22 +99,8 @@ ModelImporter:
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.22953288
-        functionName: AnimEvent_PlayAttackSFX
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
       - time: 0.55499756
         functionName: TrailOn
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.67152184
-        functionName: TrailOff
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
@@ -113,12 +113,33 @@ ModelImporter:
         floatParameter: 1
         intParameter: 1
         messageOptions: 0
+      - time: 0.67152184
+        functionName: TrailOff
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
       - time: 0.73179305
         functionName: AnimEvent_CloseMeleeWindow
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 1
         intParameter: 1
+        messageOptions: 0
+      - time: 0.7666887
+        functionName: AnimEvent_HideWarningArea
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
+        messageOptions: 0
+      - time: 0.6381695
+        functionName: AnimEvent_PlayAttackSFX
+        data: 
+        objectReferenceParameter: {instanceID: 0}
+        floatParameter: 0
+        intParameter: 0
         messageOptions: 0
       transformMask: []
       maskType: 3

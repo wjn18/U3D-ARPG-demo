@@ -19,13 +19,19 @@ public class BossAnimatorController : MonoBehaviour
     public string moveXParam = "MoveX";
     public string moveYParam = "MoveY";
     public string attackTriggerParam = "AttackTrigger";
+    public string avoidTriggerParam = "AvoidTrigger";
     public string deathTriggerParam = "DeathTrigger";
     public string attackIndexParam = "AttackIndex";
 
     [Header("State Names")]
+    public string avoidStateName = "avoid_back";
     public string kneelStateName = "Kneel Down";
     public string kneelIdleStateName = "Kneel Idle";
     public string standStateName = "Stand";
+    public string hitReactionStateName = "Standing React Large Gut";
+    public string hitSmallReactionStateName = "Standing React Large From Left";
+    public string hitBigReactionStateName = "Standing React Large From Left";
+    public string parryReactionStateName = "hit_parried";
 
     [Header("Facing")]
     public bool alwaysFaceTarget = true;
@@ -152,6 +158,9 @@ public class BossAnimatorController : MonoBehaviour
             return false;
 
         if (IsInAttackState())
+            return false;
+
+        if (IsInAvoidState())
             return false;
 
         if (IsInKneelLikeState())
@@ -431,6 +440,18 @@ public class BossAnimatorController : MonoBehaviour
         }
     }
 
+    public bool PlayAvoid()
+    {
+        if (anim == null || isDead)
+            return false;
+
+        if (IsInAttackState() || IsInKneelLikeState() || IsInAvoidState())
+            return false;
+
+        anim.SetTrigger(avoidTriggerParam);
+        return true;
+    }
+
     public void LockCurrentAttackDirection()
     {
         if (activeAttack == null || !activeAttack.trackTargetUntilDirectionLock)
@@ -552,6 +573,11 @@ public class BossAnimatorController : MonoBehaviour
         return IsInStateByName(kneelStateName);
     }
 
+    public bool IsInAvoidState()
+    {
+        return IsInStateByName(avoidStateName);
+    }
+
     public bool IsInKneelIdleState()
     {
         return IsInStateByName(kneelIdleStateName);
@@ -565,6 +591,14 @@ public class BossAnimatorController : MonoBehaviour
     public bool IsInKneelLikeState()
     {
         return IsInKneelState() || IsInKneelIdleState() || IsInStandState();
+    }
+
+    public bool IsInStaggerReactionState()
+    {
+        return IsInStateByName(hitReactionStateName)
+            || IsInStateByName(hitSmallReactionStateName)
+            || IsInStateByName(hitBigReactionStateName)
+            || IsInStateByName(parryReactionStateName);
     }
 
     public float GetCurrentNormalizedTime()

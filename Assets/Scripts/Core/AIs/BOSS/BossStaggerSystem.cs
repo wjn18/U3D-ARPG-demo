@@ -30,6 +30,7 @@ public class BossStaggerSystem : MonoBehaviour
     public string hitSmallTriggerParam = "HitSmallTrigger";
     public string hitBigTriggerParam = "HitBigTrigger";
     public string kneelTriggerParam = "KneelTrigger";
+    public string parryTriggerParam = "ParryTrigger";
     public string locomotionStateName = "Locomotion";
     public float hitReactionInterruptBlendDuration = 0.05f;
 
@@ -44,6 +45,7 @@ public class BossStaggerSystem : MonoBehaviour
     [Header("Stagger Window Cycle")]
     public float initialStaggerWindowDuration = 2f;
     public float superArmorDuration = 6f;
+    public float rvReductionAfterParried = 50f;
 
     [Header("Kneel Idle Hold")]
     public float kneelIdleHoldDuration = 2f;
@@ -133,6 +135,7 @@ public class BossStaggerSystem : MonoBehaviour
         recoverPerSecond = config.recoverPerSecond;
         initialStaggerWindowDuration = config.initialStaggerWindowDuration;
         superArmorDuration = config.superArmorDuration;
+        rvReductionAfterParried = config.rvReductionAfterParried;
         kneelIdleHoldDuration = config.kneelIdleHoldDuration;
         standBoolReleaseDelay = config.standBoolReleaseDelay;
         executeDistance = config.executeDistance;
@@ -301,7 +304,40 @@ public class BossStaggerSystem : MonoBehaviour
             InterruptAttackForHitReaction();
 
         ClearPendingHitReaction();
-        animatorController.Animator.SetTrigger(hitReactionTrigger);
+        if (bossAI != null)
+            bossAI.EnterStaggerState();
+
+        SetTriggerIfPresent(hitReactionTrigger);
+    }
+
+    public bool ReceiveParry(GameObject attacker)
+    {
+        if (bossAI == null || animatorController == null || animatorController.Animator == null)
+            return false;
+
+        if (bossAI.currentState == BOSSAI.BossState.Dead)
+            return false;
+
+        if (ShouldIgnoreHitReactionCompletely())
+            return false;
+
+        lastHitTime = Time.time;
+        currentRV = Mathf.Clamp(currentRV - Mathf.Max(0f, rvReductionAfterParried), 0f, maxRV);
+
+        if (currentRV <= 0f)
+        {
+            EnterKneel();
+            return true;
+        }
+
+        InterruptAttackForParryReaction();
+        ClearPendingHitReaction();
+
+        if (bossAI != null)
+            bossAI.EnterStaggerState();
+
+        SetTriggerIfPresent(parryTriggerParam);
+        return true;
     }
 
     string ResolveHitReactionTrigger(PlayerHitType hitType, GameObject attacker)
@@ -439,6 +475,7 @@ public class BossStaggerSystem : MonoBehaviour
         animatorController.Animator.ResetTrigger(hitTriggerParam);
         animatorController.Animator.ResetTrigger(hitSmallTriggerParam);
         animatorController.Animator.ResetTrigger(hitBigTriggerParam);
+        ResetTriggerIfPresent(parryTriggerParam);
     }
 
     bool ShouldIgnoreHitReactionCompletely()
@@ -493,6 +530,61 @@ public class BossStaggerSystem : MonoBehaviour
             return;
 
         animatorController.Animator.CrossFade(locomotionStateName, Mathf.Max(0f, hitReactionInterruptBlendDuration), 0);
+    }
+
+    void InterruptAttackForParryReaction()
+    {
+        if (bossAI != null)
+            bossAI.ForceInterruptAction();
+
+        if (animatorController == null || animatorController.Animator == null || string.IsNullOrEmpty(locomotionStateName))
+            return;
+
+        animatorController.Animator.CrossFade(locomotionStateName, Mathf.Max(0f, hitReactionInterruptBlendDuration), 0);
+    }
+
+    void SetTriggerIfPresent(string triggerName)
+    {
+        if (animatorController == null || animatorController.Animator == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(triggerName))
+            return;
+
+        if (!HasTriggerParameter(triggerName))
+        {
+            Debug.LogWarning($"Boss animator trigger '{triggerName}' was not found.", this);
+            return;
+        }
+
+        animatorController.Animator.SetTrigger(triggerName);
+    }
+
+    void ResetTriggerIfPresent(string triggerName)
+    {
+        if (animatorController == null || animatorController.Animator == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(triggerName))
+            return;
+
+        if (!HasTriggerParameter(triggerName))
+            return;
+
+        animatorController.Animator.ResetTrigger(triggerName);
+    }
+
+    bool HasTriggerParameter(string triggerName)
+    {
+        AnimatorControllerParameter[] parameters = animatorController.Animator.parameters;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            AnimatorControllerParameter parameter = parameters[i];
+            if (parameter.name == triggerName && parameter.type == AnimatorControllerParameterType.Trigger)
+                return true;
+        }
+
+        return false;
     }
 
     int GetCurrentCombatPriority()

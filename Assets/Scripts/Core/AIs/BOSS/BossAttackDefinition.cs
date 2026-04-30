@@ -68,6 +68,7 @@ public class BossAttackDefinition
     public bool requireDirectionLockEvent = false;
     public float maxTurnAngle = 35f;
     public float turnSpeed = 360f;
+    public float startupMoveMaxDistance = 0f;
 
     [Header("Payload")]
     public bool opensMeleeWindow = true;
@@ -75,10 +76,12 @@ public class BossAttackDefinition
 
     [Header("Damage")]
     public float damage = 20f;
-    public float actualAttackRange = 0f;
 
     [Header("Melee Windows")]
     public BossMeleeWindowData[] meleeWindows;
+
+    [Header("Warning Area")]
+    public string warningAreaId;
 
     [Header("Projectile")]
     public float projectileSpeed = 20f;
@@ -102,11 +105,10 @@ public class BossAttackDefinition
     public TrailRenderer[] slashTrails;
 
     public float TotalDuration => Mathf.Max(0f, startupDuration) + Mathf.Max(0f, activeDuration) + Mathf.Max(0f, recoveryDuration);
-    public float ActualRange => actualAttackRange > 0f ? actualAttackRange : maxRange;
 
     public bool IsInRange(float distance)
     {
-        return distance >= minRange && distance <= ActualRange;
+        return distance >= minRange && distance <= maxRange;
     }
 
     public float PreferredRange

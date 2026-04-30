@@ -9,6 +9,16 @@ public class BossAudioConfig
     public AudioClip[] moveClips;
 }
 
+[Serializable]
+public class BossAvoidConfig
+{
+    public float moveDistance = 2f;
+    public AudioClip[] sfxClips;
+    public GameObject vfxPrefab;
+    public string vfxSocketId;
+    public float vfxLifetime = 1f;
+}
+
 [CreateAssetMenu(menuName = "Config/Boss Config")]
 public class BossConfig : ScriptableObject
 {
@@ -31,6 +41,8 @@ public class BossConfig : ScriptableObject
     public float recoverPerSecond = 10f;
     public float initialStaggerWindowDuration = 2f;
     public float superArmorDuration = 6f;
+    [InspectorName("RV reduction after being parried")]
+    public float rvReductionAfterParried = 50f;
     public float kneelIdleHoldDuration = 2f;
     public float standBoolReleaseDelay = 1f;
     public float executeDistance = 4f;
@@ -38,6 +50,9 @@ public class BossConfig : ScriptableObject
 
     [Header("Attacks")]
     public BossAttackData[] attacks = CreateDefaultAttackSet();
+
+    [Header("Avoid")]
+    public BossAvoidConfig avoid = new BossAvoidConfig();
 
     [Header("Audio")]
     public BossAudioConfig audio = new BossAudioConfig();
@@ -66,12 +81,13 @@ public class BossConfig : ScriptableObject
                 requireDirectionLockEvent = false,
                 opensMeleeWindow = true,
                 firesProjectile = false,
+                startupMoveMaxDistance = 0f,
                 damage = 20f,
-                actualAttackRange = 4.3f,
                 meleeWindows = new[]
                 {
                     new BossMeleeWindowData { windowIndex = 0, damage = 20f, hitboxIds = Array.Empty<string>() }
                 },
+                warningAreaId = string.Empty,
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
                 interruptibleInRecovery = true
@@ -96,12 +112,13 @@ public class BossConfig : ScriptableObject
                 requireDirectionLockEvent = false,
                 opensMeleeWindow = true,
                 firesProjectile = false,
+                startupMoveMaxDistance = 0f,
                 damage = 15f,
-                actualAttackRange = 4.3f,
                 meleeWindows = new[]
                 {
                     new BossMeleeWindowData { windowIndex = 0, damage = 15f, hitboxIds = Array.Empty<string>() }
                 },
+                warningAreaId = string.Empty,
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
                 interruptibleInRecovery = true
@@ -126,12 +143,13 @@ public class BossConfig : ScriptableObject
                 requireDirectionLockEvent = false,
                 opensMeleeWindow = true,
                 firesProjectile = false,
+                startupMoveMaxDistance = 0f,
                 damage = 15f,
-                actualAttackRange = 5.5f,
                 meleeWindows = new[]
                 {
                     new BossMeleeWindowData { windowIndex = 0, damage = 15f, hitboxIds = Array.Empty<string>() }
                 },
+                warningAreaId = string.Empty,
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
                 interruptibleInRecovery = true
@@ -158,12 +176,13 @@ public class BossConfig : ScriptableObject
                 turnSpeed = 360f,
                 opensMeleeWindow = true,
                 firesProjectile = false,
+                startupMoveMaxDistance = 0f,
                 damage = 10f,
-                actualAttackRange = 4.3f,
                 meleeWindows = new[]
                 {
                     new BossMeleeWindowData { windowIndex = 0, damage = 10f, hitboxIds = Array.Empty<string>() }
                 },
+                warningAreaId = string.Empty,
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
                 interruptibleInRecovery = true
@@ -190,12 +209,13 @@ public class BossConfig : ScriptableObject
                 turnSpeed = 360f,
                 opensMeleeWindow = true,
                 firesProjectile = false,
+                startupMoveMaxDistance = 0f,
                 damage = 25f,
-                actualAttackRange = 6.5f,
                 meleeWindows = new[]
                 {
                     new BossMeleeWindowData { windowIndex = 0, damage = 25f, hitboxIds = Array.Empty<string>() }
                 },
+                warningAreaId = string.Empty,
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
                 interruptibleInRecovery = true
@@ -222,13 +242,14 @@ public class BossConfig : ScriptableObject
                 turnSpeed = 360f,
                 opensMeleeWindow = true,
                 firesProjectile = false,
+                startupMoveMaxDistance = 0f,
                 damage = 20f,
-                actualAttackRange = 6.5f,
                 meleeWindows = new[]
                 {
                     new BossMeleeWindowData { windowIndex = 0, damage = 20f, hitboxIds = Array.Empty<string>() },
                     new BossMeleeWindowData { windowIndex = 1, damage = 20f, hitboxIds = Array.Empty<string>() }
                 },
+                warningAreaId = string.Empty,
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
                 interruptibleInRecovery = true
@@ -255,10 +276,11 @@ public class BossConfig : ScriptableObject
                 turnSpeed = 360f,
                 opensMeleeWindow = false,
                 firesProjectile = true,
+                startupMoveMaxDistance = 0f,
                 damage = 30f,
-                actualAttackRange = 12f,
                 projectileSpeed = 20f,
                 projectileLifeTime = 5f,
+                warningAreaId = string.Empty,
                 interruptibleInStartup = false,
                 interruptibleInActive = false,
                 interruptibleInRecovery = true

@@ -1085,9 +1085,6 @@ PrefabInstance:
       addedObject: {fileID: 5386586562997515083}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 54bbc03f5293e6949b1329381d6088b8, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 8164502709098574477}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 54bbc03f5293e6949b1329381d6088b8, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 1331563502106296668}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 54bbc03f5293e6949b1329381d6088b8, type: 3}
       insertIndex: -1
@@ -1118,11 +1115,6 @@ Transform:
 --- !u!4 &7732125828260229742 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8021001004253913084, guid: 54bbc03f5293e6949b1329381d6088b8, type: 3}
-  m_PrefabInstance: {fileID: 8926602217854997098}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &8327322867974059030 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 608321761475470972, guid: 54bbc03f5293e6949b1329381d6088b8, type: 3}
   m_PrefabInstance: {fileID: 8926602217854997098}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &8584072811549241147 stripped
@@ -1222,7 +1214,7 @@ MonoBehaviour:
   agent: {fileID: 7630853862672796456}
   animatorController: {fileID: 394224151549386697}
   meleeDamageWindow: {fileID: 5386586562997515083}
-  rangedSkillCaster: {fileID: 8164502709098574477}
+  rangedSkillCaster: {fileID: 0}
   staggerSystem: {fileID: 1331563502106296668}
   weaponTrailVFX: {fileID: 2147243623772670327}
   combatAudioController: {fileID: 4943756024749894908}
@@ -1254,27 +1246,6 @@ MonoBehaviour:
     m_Bits: 4294967295
   drawGizmos: 1
   drawEvenWhenClosed: 1
---- !u!114 &8164502709098574477
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8584072811549241147}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc0cce131f3aebc4dac84d713450aa8e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ownerAI: {fileID: 4051228099824029671}
-  target: {fileID: 0}
-  projectileConfigs:
-  - attackIndex: 6
-    projectilePrefab: {fileID: 0}
-    firePoint: {fileID: 9148291937086358021}
-    damage: 30
-    speed: 20
-    lifeTime: 5
 --- !u!114 &1331563502106296668
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1292,6 +1263,8 @@ MonoBehaviour:
   bossRuntime: {fileID: 5202528926877056644}
   config: {fileID: 11400000, guid: fdf6ca95f3a3045419d83c751bea3cb9, type: 2}
   hitTriggerParam: HitTrigger
+  hitSmallTriggerParam: HitSmallTrigger
+  hitBigTriggerParam: HitBigTrigger
   kneelTriggerParam: KneelTrigger
   locomotionStateName: Locomotion
   hitReactionInterruptBlendDuration: 0.05
@@ -1342,8 +1315,7 @@ MonoBehaviour:
   meleeSkill3Trails:
   - {fileID: 3558296415909391103}
   - {fileID: 527417393008610167}
-  rangedAttackTrails:
-  - {fileID: 7802058116792494147}
+  meleeSkill4Trails: []
 --- !u!82 &1423845072700122087
 AudioSource:
   m_ObjectHideFlags: 0
@@ -1561,8 +1533,3 @@ MonoBehaviour:
   currentAttackIndex: -1
   currentAttackPhase: 0
   currentTarget: {fileID: 0}
---- !u!4 &9148291937086358021 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 366175167995203695, guid: 54bbc03f5293e6949b1329381d6088b8, type: 3}
-  m_PrefabInstance: {fileID: 8926602217854997098}
-  m_PrefabAsset: {fileID: 0}

@@ -2,6 +2,57 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+[CreateAssetMenu(menuName = "Combat/Player Combat Config", fileName = "PlayerCombatConfig")]
+public class PlayerCombatConfig : ScriptableObject
+{
+    [Header("Attack Groups")]
+    public List<CombatAttackData> lightAttacks = new List<CombatAttackData>();
+    public List<CombatAttackData> heavyAttacks = new List<CombatAttackData>();
+    public CombatAttackData sprintAttack = new CombatAttackData();
+    public ChargedCombatAttackData chargedAttack = new ChargedCombatAttackData();
+
+    [Header("Parry")]
+    public CombatParryData parry = new CombatParryData();
+
+    [Header("Avoid")]
+    public List<CombatAvoidData> avoidDirections = new List<CombatAvoidData>();
+
+    [Header("Locomotion")]
+    public List<CombatLocomotionData> locomotionConfigs = new List<CombatLocomotionData>();
+
+    [Header("Hit")]
+    public List<CombatHitData> smallHits = new List<CombatHitData>();
+    public List<CombatHitData> bigHits = new List<CombatHitData>();
+
+    [Header("Priority")]
+    public int locomotionPriority = 1;
+    public int avoidPriority = 2;
+
+    public CombatAvoidData GetAvoidData(RollDirection direction)
+    {
+        for (int i = 0; i < avoidDirections.Count; i++)
+        {
+            CombatAvoidData avoidData = avoidDirections[i];
+            if (avoidData != null && avoidData.direction == direction)
+                return avoidData;
+        }
+
+        return null;
+    }
+
+    public CombatLocomotionData GetLocomotionData(CombatLocomotionKind locomotionKind)
+    {
+        for (int i = 0; i < locomotionConfigs.Count; i++)
+        {
+            CombatLocomotionData locomotionData = locomotionConfigs[i];
+            if (locomotionData != null && locomotionData.locomotionKind == locomotionKind)
+                return locomotionData;
+        }
+
+        return null;
+    }
+}
+
 public enum CombatInputType
 {
     X,
@@ -16,7 +67,8 @@ public enum CombatExecutionState
     Hit,
     Roll,
     Knockback,
-    Dead
+    Dead,
+    Parry
 }
 
 public enum BufferConsumeMode
@@ -78,6 +130,23 @@ public class CombatAttackData
 }
 
 [Serializable]
+public class CombatParryData
+{
+    public string parryName = "Parry";
+    public string animatorStateName = "parry front";
+    public AnimationClip animation;
+    public float spCost = 10f;
+    public float apGainOnSuccess = 1f;
+    public float hitRadius = 1f;
+    public int priority = 2;
+    public float transitionDuration = 0.05f;
+    public AudioClip releaseVoice;
+    public AudioClip hitSound;
+    public GameObject hitVFX;
+    public string vfxSocketId;
+}
+
+[Serializable]
 public class ChargedCombatAttackData
 {
     public CombatAttackData attack = new CombatAttackData();
@@ -117,54 +186,6 @@ public class CombatHitData
     public AnimationClip animation;
     public float moveDistance = 0.5f;
     public float transitionDuration = 0.1f;
-}
-
-[CreateAssetMenu(menuName = "Combat/Player Combat Config", fileName = "PlayerCombatConfig")]
-public class PlayerCombatConfig : ScriptableObject
-{
-    [Header("Attack Groups")]
-    public List<CombatAttackData> lightAttacks = new List<CombatAttackData>();
-    public List<CombatAttackData> heavyAttacks = new List<CombatAttackData>();
-    public CombatAttackData sprintAttack = new CombatAttackData();
-    public ChargedCombatAttackData chargedAttack = new ChargedCombatAttackData();
-
-    [Header("Avoid")]
-    public List<CombatAvoidData> avoidDirections = new List<CombatAvoidData>();
-
-    [Header("Locomotion")]
-    public List<CombatLocomotionData> locomotionConfigs = new List<CombatLocomotionData>();
-
-    [Header("Hit")]
-    public List<CombatHitData> smallHits = new List<CombatHitData>();
-    public List<CombatHitData> bigHits = new List<CombatHitData>();
-
-    [Header("Priority")]
-    public int locomotionPriority = 1;
-    public int avoidPriority = 2;
-
-    public CombatAvoidData GetAvoidData(RollDirection direction)
-    {
-        for (int i = 0; i < avoidDirections.Count; i++)
-        {
-            CombatAvoidData avoidData = avoidDirections[i];
-            if (avoidData != null && avoidData.direction == direction)
-                return avoidData;
-        }
-
-        return null;
-    }
-
-    public CombatLocomotionData GetLocomotionData(CombatLocomotionKind locomotionKind)
-    {
-        for (int i = 0; i < locomotionConfigs.Count; i++)
-        {
-            CombatLocomotionData locomotionData = locomotionConfigs[i];
-            if (locomotionData != null && locomotionData.locomotionKind == locomotionKind)
-                return locomotionData;
-        }
-
-        return null;
-    }
 }
 
 [Serializable]

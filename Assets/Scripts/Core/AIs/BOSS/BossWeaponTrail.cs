@@ -9,7 +9,7 @@ public class BossWeaponTrailController : MonoBehaviour
         MeleeSkill1,
         MeleeSkill2,
         MeleeSkill3,
-        Ranged
+        MeleeSkill4
     }
 
     [Header("Trail Sets")]
@@ -18,7 +18,7 @@ public class BossWeaponTrailController : MonoBehaviour
     [SerializeField] private TrailRenderer[] meleeSkill1Trails;
     [SerializeField] private TrailRenderer[] meleeSkill2Trails;
     [SerializeField] private TrailRenderer[] meleeSkill3Trails;
-    [SerializeField] private TrailRenderer[] rangedAttackTrails;
+    [SerializeField] private TrailRenderer[] meleeSkill4Trails;
 
     private TrailSet activeTrailSet = TrailSet.Normal;
     private TrailRenderer[] activeAttackTrails;
@@ -66,10 +66,11 @@ public class BossWeaponTrailController : MonoBehaviour
                     return meleeSkill3Trails;
                 break;
 
-            case TrailSet.Ranged:
-                if (HasAnyTrail(rangedAttackTrails))
-                    return rangedAttackTrails;
+            case TrailSet.MeleeSkill4:
+                if (HasAnyTrail(meleeSkill4Trails))
+                    return meleeSkill4Trails;
                 break;
+
         }
 
         return normalAttackTrails;
@@ -81,7 +82,7 @@ public class BossWeaponTrailController : MonoBehaviour
         SetTrailState(meleeSkill1Trails, enabled, clearTrails);
         SetTrailState(meleeSkill2Trails, enabled, clearTrails);
         SetTrailState(meleeSkill3Trails, enabled, clearTrails);
-        SetTrailState(rangedAttackTrails, enabled, clearTrails);
+        SetTrailState(meleeSkill4Trails, enabled, clearTrails);
         SetTrailState(activeAttackTrails, enabled, clearTrails);
     }
 

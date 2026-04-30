@@ -16,7 +16,7 @@ MonoBehaviour:
   bossName: Uriel
   maxHP: 1000
   maxRV: 200
-  engageDistance: 30
+  engageDistance: 60
   approachStopDistance: 4.5
   repathInterval: 0.4
   combatDistanceTolerance: 0.35
@@ -25,6 +25,7 @@ MonoBehaviour:
   recoverPerSecond: 10
   initialStaggerWindowDuration: 2
   superArmorDuration: 6
+  rvReductionAfterParried: 50
   kneelIdleHoldDuration: 2
   standBoolReleaseDelay: 1
   executeDistance: 4
@@ -51,15 +52,16 @@ MonoBehaviour:
     requireDirectionLockEvent: 0
     maxTurnAngle: 35
     turnSpeed: 360
+    startupMoveMaxDistance: 0
     opensMeleeWindow: 1
     firesProjectile: 0
     damage: 20
-    actualAttackRange: 4.3
     meleeWindows:
     - windowIndex: 0
       damage: 20
       hitboxIds:
       - HitBox1
+    warningAreaId: 
     projectileSpeed: 20
     projectileLifeTime: 5
     interruptibleInStartup: 0
@@ -81,13 +83,13 @@ MonoBehaviour:
     category: 1
     cooldown: 24
     minRange: 0
-    maxRange: 8
-    preferredDistance: 4
+    maxRange: 6
+    preferredDistance: 4.8
     attackSelectionPriority: 18
     hitReactionPriority: 3
     animationTrigger: AttackTrigger
     animationStateName: Attack_MeleeSkill_4
-    startupDuration: 0.4
+    startupDuration: 0.8
     activeDuration: 0.2
     recoveryDuration: 0.45
     alignBeforeAttack: 1
@@ -95,12 +97,12 @@ MonoBehaviour:
     useRootMotionRotation: 1
     trackTargetUntilDirectionLock: 0
     requireDirectionLockEvent: 0
-    maxTurnAngle: 35
+    maxTurnAngle: 50
     turnSpeed: 50
+    startupMoveMaxDistance: 0
     opensMeleeWindow: 1
     firesProjectile: 0
     damage: 30
-    actualAttackRange: 12
     meleeWindows:
     - windowIndex: 0
       damage: 20
@@ -111,6 +113,7 @@ MonoBehaviour:
       hitboxIds:
       - HitBox3
       - HitBox1
+    warningAreaId: HitBox3/WarningArea
     projectileSpeed: 40
     projectileLifeTime: 5
     interruptibleInStartup: 0
@@ -147,15 +150,16 @@ MonoBehaviour:
     requireDirectionLockEvent: 1
     maxTurnAngle: 35
     turnSpeed: 360
+    startupMoveMaxDistance: 0
     opensMeleeWindow: 1
     firesProjectile: 0
     damage: 10
-    actualAttackRange: 4.3
     meleeWindows:
     - windowIndex: 0
       damage: 10
       hitboxIds:
       - HitBox2
+    warningAreaId: 
     projectileSpeed: 12
     projectileLifeTime: 5
     interruptibleInStartup: 0
@@ -170,18 +174,18 @@ MonoBehaviour:
     hitEffectLifetime: 0.75
     hitEffectNormalOffset: 0.02
     slashTrails: []
-  - displayName: Melee Skill 2
-    attackIndex: 4
+  - displayName: Melee Skill 5
+    attackIndex: 1
     category: 1
-    cooldown: 20
-    minRange: 4.5
-    maxRange: 6.5
+    cooldown: 30
+    minRange: 4
+    maxRange: 10
     preferredDistance: 5.5
     attackSelectionPriority: 21
     hitReactionPriority: 3
     animationTrigger: AttackTrigger
-    animationStateName: Attack_MeleeSkill_2
-    startupDuration: 0.38
+    animationStateName: Attack_MeleeSkill_5
+    startupDuration: 2
     activeDuration: 0.24
     recoveryDuration: 0.4
     alignBeforeAttack: 1
@@ -191,15 +195,17 @@ MonoBehaviour:
     requireDirectionLockEvent: 1
     maxTurnAngle: 35
     turnSpeed: 360
+    startupMoveMaxDistance: 100
     opensMeleeWindow: 1
     firesProjectile: 0
-    damage: 25
-    actualAttackRange: 6.5
+    damage: 40
     meleeWindows:
     - windowIndex: 0
-      damage: 25
+      damage: 40
       hitboxIds:
       - HitBox1
+      - HitBox4
+    warningAreaId: HitBox4/WarningArea
     projectileSpeed: 12
     projectileLifeTime: 5
     interruptibleInStartup: 0
@@ -212,7 +218,7 @@ MonoBehaviour:
     - {fileID: 8300000, guid: 2f7d32d2e8887214288c1fe8dbcb1415, type: 3}
     attackMissClips: []
     hitEffectPrefab: {fileID: 1014011059874384, guid: 01a055765a6654d46b9191dd45501ef6, type: 3}
-    hitEffectLifetime: 0.75
+    hitEffectLifetime: 1
     hitEffectNormalOffset: 0.02
     slashTrails: []
   - displayName: Melee Skill 3
@@ -236,10 +242,10 @@ MonoBehaviour:
     requireDirectionLockEvent: 1
     maxTurnAngle: 35
     turnSpeed: 360
+    startupMoveMaxDistance: 0
     opensMeleeWindow: 1
     firesProjectile: 0
     damage: 15
-    actualAttackRange: 6.5
     meleeWindows:
     - windowIndex: 0
       damage: 15
@@ -253,6 +259,7 @@ MonoBehaviour:
       damage: 15
       hitboxIds:
       - HitBox1
+    warningAreaId: 
     projectileSpeed: 12
     projectileLifeTime: 5
     interruptibleInStartup: 0
@@ -268,47 +275,12 @@ MonoBehaviour:
     hitEffectLifetime: 0.75
     hitEffectNormalOffset: 0.02
     slashTrails: []
-  - displayName: Ranged
-    attackIndex: 6
-    category: 2
-    cooldown: 30
-    minRange: 5
-    maxRange: 12
-    preferredDistance: 10
-    attackSelectionPriority: 18
-    hitReactionPriority: 2
-    animationTrigger: AttackTrigger
-    animationStateName: Attack_Ranged
-    startupDuration: 0.4
-    activeDuration: 0.2
-    recoveryDuration: 0.45
-    alignBeforeAttack: 1
-    useRootMotionPosition: 1
-    useRootMotionRotation: 0
-    trackTargetUntilDirectionLock: 1
-    requireDirectionLockEvent: 1
-    maxTurnAngle: 35
-    turnSpeed: 50
-    opensMeleeWindow: 0
-    firesProjectile: 1
-    damage: 30
-    actualAttackRange: 12
-    meleeWindows: []
-    projectileSpeed: 40
-    projectileLifeTime: 5
-    interruptibleInStartup: 0
-    interruptibleInActive: 0
-    interruptibleInRecovery: 1
-    attackVoiceClips: []
-    attackSwingClips:
-    - {fileID: 8300000, guid: c3deefd8f3e1e9949922162299d239f8, type: 3}
-    attackHitClips:
-    - {fileID: 0}
-    attackMissClips: []
-    hitEffectPrefab: {fileID: 1295943409540678, guid: fc39452c4f57b28418f137963889d607, type: 3}
-    hitEffectLifetime: 0.75
-    hitEffectNormalOffset: 0.02
-    slashTrails: []
+  avoid:
+    moveDistance: 6
+    sfxClips: []
+    vfxPrefab: {fileID: 0}
+    vfxSocketId: 
+    vfxLifetime: 1
   audio:
     hurtVoiceClips:
     - {fileID: 8300000, guid: 09b8880e2d4b3864eaac58dbf471e1e3, type: 3}

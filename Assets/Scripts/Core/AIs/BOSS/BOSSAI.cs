@@ -7,13 +7,17 @@ using UnityEngine.AI;
 [RequireComponent(typeof(BossRuntime))]
 public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
 {
+    const float StartupMoveStopDistance = 0.5f;
+    const float AvoidTriggerCooldown = 10f;
+
     public enum BossState
     {
         Idle,
         Approach,
         Retreat,
         Attacking,
-        Dead
+        Dead,
+        Stagger
     }
 
     [Header("Config")]
@@ -31,6 +35,7 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
     public BossRuntime bossRuntime;
 
     [Header("Detection")]
+    [HideInInspector]
     public float engageDistance = 25f;
 
     [Header("Locomotion")]
@@ -86,6 +91,18 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
     private bool attackHitConfirmedThisWindow;
     private bool rangedAttackResultPending;
     private float nextAllowedTargetSwitchTime;
+    private GameObject activeWarningArea;
+    private bool avoidTriggeredWhileAllAttacksCoolingDown;
+    private float nextAvoidAllowedTime;
+    private bool wasInAvoidState;
+    private bool avoidMoveActive;
+    private float avoidMoveEndTime;
+    private float avoidMoveRemainingDistance;
+    private bool startupMoveActive;
+    private float startupMoveEndTime;
+    private float startupMoveRemainingDistance;
+    private bool parryWindowOpen;
+    private float staggerStateMinEndTime;
 
     void Awake()
     {
@@ -126,6 +143,7 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
 
         ApplyAttackPayloadDefaults();
         BuildCooldownTable();
+        HideAllConfiguredWarningAreas();
     }
 
     void ApplyConfig()
@@ -187,8 +205,8 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
             if (attack.damage <= 0f)
                 attack.damage = defaultAttack.damage;
 
-            if (attack.actualAttackRange <= 0f)
-                attack.actualAttackRange = defaultAttack.ActualRange;
+            if (attack.maxRange <= 0f)
+                attack.maxRange = defaultAttack.maxRange;
 
             if (attack.projectileSpeed <= 0f)
                 attack.projectileSpeed = defaultAttack.projectileSpeed;
@@ -260,8 +278,22 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
             return;
         }
 
+        UpdateAvoidState();
+        if (animatorController != null && animatorController.IsInAvoidState())
+        {
+            StopMove();
+            return;
+        }
+
+        if (currentState == BossState.Stagger)
+        {
+            UpdateStaggerState();
+            return;
+        }
+
         if (currentState == BossState.Attacking)
         {
+            avoidTriggeredWhileAllAttacksCoolingDown = false;
             UpdateAttackState();
             return;
         }
@@ -277,9 +309,18 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         BossAttackDefinition attack = SelectAttack(distance);
         if (attack != null)
         {
+            avoidTriggeredWhileAllAttacksCoolingDown = false;
             StartAttack(attack);
             return;
         }
+
+        if (AreAllAttacksCoolingDown())
+        {
+            TriggerAvoidIfNeeded();
+            return;
+        }
+
+        avoidTriggeredWhileAllAttacksCoolingDown = false;
 
         UpdatePositioning(distance);
     }
@@ -415,6 +456,157 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         nextReadyTimeByIndex[attack.attackIndex] = Time.time + Mathf.Max(0f, attack.cooldown);
     }
 
+    bool AreAllAttacksCoolingDown()
+    {
+        if (attacks == null || attacks.Length == 0)
+            return false;
+
+        bool hasValidAttack = false;
+
+        for (int i = 0; i < attacks.Length; i++)
+        {
+            BossAttackDefinition attack = attacks[i];
+            if (attack == null)
+                continue;
+
+            hasValidAttack = true;
+
+            if (IsAttackReady(attack))
+                return false;
+        }
+
+        return hasValidAttack;
+    }
+
+    void TriggerAvoidIfNeeded()
+    {
+        if (avoidTriggeredWhileAllAttacksCoolingDown)
+            return;
+
+        if (Time.time < nextAvoidAllowedTime)
+            return;
+
+        avoidTriggeredWhileAllAttacksCoolingDown = true;
+        StopMove();
+
+        if (animatorController != null && animatorController.PlayAvoid())
+            nextAvoidAllowedTime = Time.time + AvoidTriggerCooldown;
+    }
+
+    void UpdateAvoidState()
+    {
+        bool isInAvoidState = animatorController != null && animatorController.IsInAvoidState();
+
+        if (isInAvoidState && !wasInAvoidState)
+            BeginAvoidState();
+        else if (!isInAvoidState && wasInAvoidState)
+            EndAvoidState();
+
+        wasInAvoidState = isInAvoidState;
+
+        if (isInAvoidState)
+            UpdateAvoidMove();
+    }
+
+    void BeginAvoidState()
+    {
+        BossAvoidConfig avoidConfig = config != null ? config.avoid : null;
+        if (avoidConfig == null)
+            return;
+
+        float moveDistance = Mathf.Max(0f, avoidConfig.moveDistance);
+        float avoidDuration = 0.01f;
+
+        if (animatorController != null && animatorController.Animator != null)
+        {
+            Animator animator = animatorController.Animator;
+            AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+
+            if (animator.IsInTransition(0))
+            {
+                AnimatorStateInfo nextState = animator.GetNextAnimatorStateInfo(0);
+                if (nextState.IsName(animatorController.avoidStateName))
+                    state = nextState;
+            }
+
+            avoidDuration = Mathf.Max(0.01f, state.length);
+        }
+
+        avoidMoveRemainingDistance = moveDistance;
+        avoidMoveEndTime = Time.time + avoidDuration;
+        avoidMoveActive = moveDistance > 0.001f;
+
+        if (combatAudioController != null && HasAnyClip(avoidConfig.sfxClips))
+            combatAudioController.PlayOneShot(avoidConfig.sfxClips);
+
+        PlayAvoidVFX(avoidConfig);
+    }
+
+    void EndAvoidState()
+    {
+        StopAvoidMove();
+    }
+
+    void StopAvoidMove()
+    {
+        avoidMoveActive = false;
+        avoidMoveEndTime = 0f;
+        avoidMoveRemainingDistance = 0f;
+
+        if (agent != null && agent.enabled)
+            agent.nextPosition = transform.position;
+    }
+
+    void UpdateAvoidMove()
+    {
+        if (!avoidMoveActive)
+            return;
+
+        float remainingTime = avoidMoveEndTime - Time.time;
+        if (remainingTime <= 0.001f || avoidMoveRemainingDistance <= 0.001f)
+        {
+            StopAvoidMove();
+            return;
+        }
+
+        Vector3 backward = -transform.forward;
+        backward.y = 0f;
+        if (backward.sqrMagnitude <= 0.0001f)
+        {
+            StopAvoidMove();
+            return;
+        }
+
+        backward.Normalize();
+
+        float speed = avoidMoveRemainingDistance / remainingTime;
+        float frameMoveDistance = Mathf.Min(avoidMoveRemainingDistance, speed * Time.deltaTime);
+        if (frameMoveDistance <= 0.0001f)
+            return;
+
+        transform.position += backward * frameMoveDistance;
+        avoidMoveRemainingDistance = Mathf.Max(0f, avoidMoveRemainingDistance - frameMoveDistance);
+
+        if (agent != null && agent.enabled)
+            agent.nextPosition = transform.position;
+    }
+
+    void PlayAvoidVFX(BossAvoidConfig avoidConfig)
+    {
+        if (avoidConfig == null || avoidConfig.vfxPrefab == null)
+            return;
+
+        Transform socket = FindBossChildTransform(avoidConfig.vfxSocketId);
+        if (socket == null && !string.IsNullOrWhiteSpace(avoidConfig.vfxSocketId))
+            Debug.LogWarning($"Boss avoid VFX socket '{avoidConfig.vfxSocketId}' was not found.", this);
+
+        Vector3 position = socket != null ? socket.position : transform.position;
+        Quaternion rotation = socket != null ? socket.rotation : transform.rotation;
+
+        GameObject instance = Instantiate(avoidConfig.vfxPrefab, position, rotation);
+        Destroy(instance, Mathf.Max(0.01f, avoidConfig.vfxLifetime));
+    }
+
     void UpdatePositioning(float distanceToPlayer)
     {
         currentState = BossState.Approach;
@@ -500,12 +692,14 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         if (attack == null)
             return;
 
+        HideActiveWarningArea();
         currentAttack = attack;
         currentAttackElapsed = 0f;
         SetAttackRuntime(attack.attackIndex, BossAttackPhase.Startup);
         currentAttackWindowIndex = 0;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
+        parryWindowOpen = false;
         currentState = BossState.Attacking;
 
         SetAttackCooldown(attack);
@@ -543,6 +737,7 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         if (evaluatedPhase != currentAttackPhase)
             SetAttackPhase(evaluatedPhase);
 
+        UpdateStartupMove();
         StopMove();
 
         if (!animatorController.IsBusyWithAttackMotion && !animatorController.IsInAttackState())
@@ -571,12 +766,16 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
 
     void FinishAttack()
     {
+        StopStartupMoveToTarget();
+        StopAvoidMove();
+        HideActiveWarningArea();
         currentAttack = null;
         currentAttackElapsed = 0f;
         ClearAttackRuntime();
         currentAttackWindowIndex = 0;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
+        parryWindowOpen = false;
 
         if (meleeDamageWindow != null)
             meleeDamageWindow.ForceCloseWindow();
@@ -600,6 +799,9 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         if (meleeDamageWindow != null)
             meleeDamageWindow.ForceCloseWindow();
 
+        StopStartupMoveToTarget();
+        StopAvoidMove();
+        HideActiveWarningArea();
         StopMove();
 
         if (animatorController != null)
@@ -615,6 +817,7 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         currentAttackWindowIndex = 0;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
+        parryWindowOpen = false;
 
         if (currentState != BossState.Dead)
             currentState = BossState.Idle;
@@ -628,11 +831,50 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         return currentAttack.IsInterruptible(currentAttackPhase);
     }
 
+    public void EnterStaggerState(float minimumDuration = 0.2f)
+    {
+        if (currentState == BossState.Dead)
+            return;
+
+        StopMove();
+        currentState = BossState.Stagger;
+        staggerStateMinEndTime = Time.time + Mathf.Max(0f, minimumDuration);
+    }
+
+    void UpdateStaggerState()
+    {
+        StopMove();
+
+        if (Time.time < staggerStateMinEndTime)
+            return;
+
+        if (animatorController != null)
+        {
+            if (animatorController.IsInStaggerReactionState())
+                return;
+
+            if (animatorController.Animator != null && animatorController.Animator.IsInTransition(0))
+                return;
+        }
+
+        currentState = BossState.Idle;
+    }
+
+    public void AnimEvent_EndStagger()
+    {
+        if (currentState == BossState.Stagger)
+            currentState = BossState.Idle;
+    }
+
     void Die()
     {
         currentState = BossState.Dead;
         attackHitConfirmedThisWindow = false;
         rangedAttackResultPending = false;
+        parryWindowOpen = false;
+        StopStartupMoveToTarget();
+        StopAvoidMove();
+        HideActiveWarningArea();
 
         if (combatAudioController != null)
         {
@@ -662,6 +904,9 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         if (currentState == BossState.Dead)
             return;
 
+        if (TryReceiveParry(attacker))
+            return;
+
         float safeAmount = Mathf.Max(0f, amount);
         if (safeAmount <= 0f)
             return;
@@ -686,6 +931,27 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
 
         if (currentHP <= 0f)
             Die();
+    }
+
+    public bool ReceiveParry(GameObject attacker = null)
+    {
+        return TryReceiveParry(attacker);
+    }
+
+    bool TryReceiveParry(GameObject attacker)
+    {
+        if (!parryWindowOpen)
+            return false;
+
+        if (!IsPlayerDamageSource(attacker))
+            return false;
+
+        parryWindowOpen = false;
+
+        if (staggerSystem == null)
+            return false;
+
+        return staggerSystem.ReceiveParry(attacker);
     }
 
     BossStaggerSystem.PlayerHitType ResolveHitType(GameObject attacker)
@@ -919,6 +1185,176 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         return attack != null ? attack.hitEffectPrefab : null;
     }
 
+    GameObject GetAttackWarningArea(int attackIndex)
+    {
+        BossAttackDefinition attack = GetAttackDefinition(attackIndex);
+        if (attack == null || string.IsNullOrWhiteSpace(attack.warningAreaId))
+            return null;
+
+        return FindBossChildObject(attack.warningAreaId);
+    }
+
+    GameObject FindBossChildObject(string objectId)
+    {
+        Transform childTransform = FindBossChildTransform(objectId);
+        return childTransform != null ? childTransform.gameObject : null;
+    }
+
+    Transform FindBossChildTransform(string objectId)
+    {
+        if (string.IsNullOrWhiteSpace(objectId))
+            return null;
+
+        Transform directMatch = transform.Find(objectId);
+        if (directMatch != null)
+            return directMatch;
+
+        Transform[] allChildren = GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < allChildren.Length; i++)
+        {
+            Transform child = allChildren[i];
+            if (child != null && child.name == objectId)
+                return child;
+        }
+
+        return null;
+    }
+
+    void HideAllConfiguredWarningAreas()
+    {
+        if (attacks == null)
+            return;
+
+        HashSet<GameObject> uniqueAreas = new HashSet<GameObject>();
+        for (int i = 0; i < attacks.Length; i++)
+        {
+            BossAttackDefinition attack = attacks[i];
+            if (attack == null || string.IsNullOrWhiteSpace(attack.warningAreaId))
+                continue;
+
+            GameObject warningArea = FindBossChildObject(attack.warningAreaId);
+            if (warningArea == null || !uniqueAreas.Add(warningArea))
+                continue;
+
+            warningArea.SetActive(false);
+        }
+
+        activeWarningArea = null;
+    }
+
+    void HideActiveWarningArea()
+    {
+        if (activeWarningArea != null)
+            activeWarningArea.SetActive(false);
+
+        activeWarningArea = null;
+    }
+
+    void StartStartupMoveToTarget()
+    {
+        StopStartupMoveToTarget();
+
+        if (currentAttack == null)
+            return;
+
+        if (CurrentTarget == null)
+            return;
+
+        float maxMoveDistance = Mathf.Max(0f, currentAttack.startupMoveMaxDistance);
+        if (maxMoveDistance <= 0f)
+        {
+            Debug.LogWarning($"Boss startup move max distance is not configured for attack {currentAttack.attackIndex}.", this);
+            return;
+        }
+
+        float remainingStartupTime = Mathf.Max(0f, currentAttack.startupDuration - currentAttackElapsed);
+        if (remainingStartupTime <= 0.01f)
+            return;
+
+        float currentDistance = DistanceToCurrentTarget();
+        float requiredMoveDistance = Mathf.Max(0f, currentDistance - StartupMoveStopDistance);
+        startupMoveRemainingDistance = Mathf.Min(requiredMoveDistance, maxMoveDistance);
+
+        if (startupMoveRemainingDistance <= 0.01f)
+            return;
+
+        startupMoveEndTime = Time.time + remainingStartupTime;
+        startupMoveActive = true;
+    }
+
+    void StopStartupMoveToTarget()
+    {
+        startupMoveActive = false;
+        startupMoveEndTime = 0f;
+        startupMoveRemainingDistance = 0f;
+
+        if (agent != null && agent.enabled)
+            agent.nextPosition = transform.position;
+    }
+
+    void UpdateStartupMove()
+    {
+        if (!startupMoveActive || currentAttack == null)
+            return;
+
+        if (currentAttackPhase != BossAttackPhase.Startup)
+        {
+            StopStartupMoveToTarget();
+            return;
+        }
+
+        float remainingTime = startupMoveEndTime - Time.time;
+        if (remainingTime <= 0.001f)
+        {
+            StopStartupMoveToTarget();
+            return;
+        }
+
+        Transform target = CurrentTarget;
+        if (target == null)
+        {
+            StopStartupMoveToTarget();
+            return;
+        }
+
+        Vector3 toTarget = target.position - transform.position;
+        toTarget.y = 0f;
+
+        if (toTarget.sqrMagnitude <= 0.0001f)
+        {
+            StopStartupMoveToTarget();
+            return;
+        }
+
+        float neededDistance = Mathf.Max(0f, toTarget.magnitude - StartupMoveStopDistance);
+        if (neededDistance <= 0.01f || startupMoveRemainingDistance <= 0.01f)
+        {
+            StopStartupMoveToTarget();
+            return;
+        }
+
+        float plannedSpeed = startupMoveRemainingDistance / remainingTime;
+        float frameMoveDistance = Mathf.Min(
+            startupMoveRemainingDistance,
+            neededDistance,
+            plannedSpeed * Time.deltaTime
+        );
+
+        if (frameMoveDistance <= 0.0001f)
+            return;
+
+        Vector3 moveDirection = toTarget.normalized;
+        transform.position += moveDirection * frameMoveDistance;
+        startupMoveRemainingDistance = Mathf.Max(0f, startupMoveRemainingDistance - frameMoveDistance);
+
+        float rotateSpeed = currentAttack.turnSpeed > 0f ? currentAttack.turnSpeed : 360f;
+        Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotateSpeed * Time.deltaTime);
+
+        if (agent != null && agent.enabled)
+            agent.nextPosition = transform.position;
+    }
+
     public float GetAttackHitEffectLifetime(int attackIndex, float fallback)
     {
         BossAttackDefinition attack = GetAttackDefinition(attackIndex);
@@ -988,7 +1424,7 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
             case 5:
                 return BossWeaponTrailController.TrailSet.MeleeSkill3;
             case 6:
-                return BossWeaponTrailController.TrailSet.Ranged;
+                return BossWeaponTrailController.TrailSet.MeleeSkill4;
             default:
                 return BossWeaponTrailController.TrailSet.Normal;
         }
@@ -1034,6 +1470,32 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
             SetAttackPhase(BossAttackPhase.Recovery);
     }
 
+    public void AnimEvent_OpenParryWindow()
+    {
+        if (staggerSystem != null && staggerSystem.ShouldLockBossAction())
+            return;
+
+        if (currentState != BossState.Attacking)
+            return;
+
+        parryWindowOpen = true;
+    }
+
+    public void AnimEvent_CloseParryWindow()
+    {
+        parryWindowOpen = false;
+    }
+
+    public void AnimEvent_ParryWindowOn()
+    {
+        AnimEvent_OpenParryWindow();
+    }
+
+    public void AnimEvent_ParryWindowOff()
+    {
+        AnimEvent_CloseParryWindow();
+    }
+
     public void AnimEvent_FireProjectile()
     {
         if (staggerSystem != null && staggerSystem.ShouldLockBossAction())
@@ -1060,6 +1522,22 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
         animatorController.LockCurrentAttackDirection();
     }
 
+    public void AnimEvent_StartMoveToTarget()
+    {
+        if (staggerSystem != null && staggerSystem.ShouldLockBossAction())
+            return;
+
+        if (currentState != BossState.Attacking)
+            return;
+
+        StartStartupMoveToTarget();
+    }
+
+    public void AnimEvent_StopMoveToTarget()
+    {
+        StopStartupMoveToTarget();
+    }
+
     public void AnimEvent_PlayAttackSFX()
     {
         if (combatAudioController == null)
@@ -1069,6 +1547,30 @@ public class BOSSAI : MonoBehaviour, IDamageable, ICombatPrioritySource
             combatAudioController.PlayAttackStart(currentAttack.attackVoiceClips, currentAttack.attackSwingClips);
         else
             combatAudioController.PlayAttackStart();
+    }
+
+    public void AnimEvent_ShowWarningArea()
+    {
+        if (currentAttack == null)
+            return;
+
+        GameObject warningArea = GetAttackWarningArea(currentAttack.attackIndex);
+        if (warningArea == null)
+        {
+            Debug.LogWarning($"Boss warning area missing for attack {currentAttack.attackIndex}.", this);
+            return;
+        }
+
+        if (activeWarningArea != null && activeWarningArea != warningArea)
+            activeWarningArea.SetActive(false);
+
+        activeWarningArea = warningArea;
+        activeWarningArea.SetActive(true);
+    }
+
+    public void AnimEvent_HideWarningArea()
+    {
+        HideActiveWarningArea();
     }
 
     public void NotifyAttackHitConfirmed()
