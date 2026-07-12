@@ -202,6 +202,7 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
         TryExecuteBufferedInput();
 
         Vector2 moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        StopSprintWhenMovementStops(moveInput);
         HandleMovement(moveInput);
 
         if (attackWindowActive && currentAttackData != null)
@@ -944,6 +945,15 @@ public class PlayerCombatController : MonoBehaviour, ICombatPrioritySource
             return;
 
         sprintMode = !sprintMode;
+    }
+
+    void StopSprintWhenMovementStops(Vector2 moveInput)
+    {
+        bool inLocomotion = currentState == CombatExecutionState.Locomotion ||
+                            currentState == CombatExecutionState.LockOnLocomotion;
+
+        if (sprintMode && inLocomotion && moveInput.sqrMagnitude <= 0.01f)
+            sprintMode = false;
     }
 
     bool CanStartSprintAttack()
