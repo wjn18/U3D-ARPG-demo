@@ -1,6 +1,8 @@
-# personalUnityDemoProject
+# U3D-ARPG-demo
 
-Unity project repository for `personalUnityDemoProject`.
+Unity project repository for `U3D-ARPG-demo`.
+This demo includes one Boss fignt, one enemy soldier and a set of combat systems.
+
 
 ## Environment
 
@@ -20,6 +22,12 @@ Current scenes in `Assets/Scenes/`:
 - `SampleScene`
 - `SettingPage`
 - `TankTest`
+
+## How to play
+
+Use WASD to move and mouse to attack and defend. 
+Multi click on mouse will lead to combo attacks.
+Wait to be detailed.
 
 ## Packages
 
@@ -50,6 +58,5 @@ See `Packages/manifest.json` for the full package list.
 
 ## TODO
 
-- Add a short gameplay overview.
 - Document the recommended entry scene.
 - Add build and run instructions once the workflow is finalized.
